@@ -251,8 +251,11 @@ import { ArrowLeft } from '@lucide/astro';
       true
     );
 
+    // Keep in sync with src/lib/posts.ts's slugify — must support Korean
+    // titles (À-ɏ covers accented Latin, 가-힣 covers Hangul syllables) or a
+    // Korean-only title collapses to an empty/mangled slug.
     function slugify(v) {
-      return v.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      return v.toLowerCase().trim().replace(/[^a-z0-9À-ɏ가-힣]+/g, '-').replace(/(^-|-$)/g, '');
     }
 
     // ---- Edit an existing post: prefill from /posts/<slug>.json ----
