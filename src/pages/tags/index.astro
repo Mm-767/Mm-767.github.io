@@ -1,0 +1,19 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getAllTags } from '../../lib/posts';
+
+const tags = await getAllTags();
+---
+<BaseLayout title="Tags">
+  <section class="mx-auto max-w-[760px] px-4 py-12">
+    <h1 class="text-heading text-pin-plum">Browse by tag</h1>
+    <div class="mt-6 flex flex-wrap gap-2">
+      {tags.map((t) => (
+        <a href={'/tags/' + t.slug} class="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-caption-bold text-pin-plum hover:bg-pin-warm-light">
+          {t.name}
+          <span class="font-normal text-caption text-pin-olive">{t.count}</span>
+        </a>
+      ))}
+    </div>
+  </section>
+</BaseLayout>

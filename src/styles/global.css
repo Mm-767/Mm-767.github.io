@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-pin-sand font-sans text-pin-plum antialiased;
+  }
+  ::selection {
+    background: #e60023;
+    color: #ffffff;
+  }
+}

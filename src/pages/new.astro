@@ -1,0 +1,327 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { ArrowLeft } from '@lucide/astro';
+---
+<BaseLayout title="Write Post">
+  <section class="mx-auto max-w-[760px] px-4 py-10">
+    <a href="/" class="mb-5 inline-flex items-center gap-1.5 text-caption-bold text-pin-olive hover:text-pin-red">
+      <ArrowLeft size={16} /> Back
+    </a>
+    <h1 id="page-heading" class="text-heading text-pin-plum">Write Post</h1>
+
+    <form id="post-form" class="mt-6 flex flex-col gap-4">
+      <div>
+        <label class="mb-1.5 block text-caption-bold text-pin-olive">Title</label>
+        <input name="title" required placeholder="Post title"
+          class="w-full rounded-pin border border-pin-silver bg-white px-[15px] py-[11px] text-body text-pin-plum outline-none focus:ring-2 focus:ring-pin-focus" />
+      </div>
+      <div>
+        <label class="mb-1.5 block text-caption-bold text-pin-olive">Tags (comma-separated)</label>
+        <input name="tags" placeholder="e.g. postgres, indexing"
+          class="w-full rounded-pin border border-pin-silver bg-white px-[15px] py-[11px] text-body text-pin-plum outline-none focus:ring-2 focus:ring-pin-focus" />
+      </div>
+      <div class="flex gap-4">
+        <div class="flex-1">
+          <label class="mb-1.5 block text-caption-bold text-pin-olive">Category</label>
+          <input name="category" placeholder="General"
+            class="w-full rounded-pin border border-pin-silver bg-white px-[15px] py-[11px] text-body text-pin-plum outline-none focus:ring-2 focus:ring-pin-focus" />
+        </div>
+        <div class="flex-1">
+          <label class="mb-1.5 block text-caption-bold text-pin-olive">Date</label>
+          <input name="date" type="date"
+            class="w-full rounded-pin border border-pin-silver bg-white px-[15px] py-[11px] text-body text-pin-plum outline-none focus:ring-2 focus:ring-pin-focus" />
+        </div>
+      </div>
+      <div>
+        <label class="mb-1.5 block text-caption-bold text-pin-olive">Content</label>
+        <p class="mb-2 text-caption text-pin-silver">Write freely, like Notion — headings, lists and quotes via Markdown shortcuts (#, -, &gt;), images by paste or drag &amp; drop. The first image becomes the card thumbnail.</p>
+        <div id="editor"
+          class="prose min-h-[420px] w-full max-w-none rounded-pin border border-pin-silver bg-white px-6 py-5 text-pin-plum outline-none focus-within:ring-2 focus-within:ring-pin-focus prose-headings:text-pin-plum prose-img:rounded-pin-sm [&_.ProseMirror]:min-h-[380px] [&_.ProseMirror]:outline-none"></div>
+      </div>
+      <div class="flex gap-2.5">
+        <button id="submit-btn" type="submit" class="rounded-pin bg-pin-red px-5 py-2.5 text-caption-bold text-black hover:text-white">Save — download .md</button>
+        <a href="/" class="rounded-pin bg-pin-sand px-5 py-2.5 text-caption-bold text-pin-plum hover:text-pin-red">Cancel</a>
+      </div>
+    </form>
+
+    <p id="help-text" class="mt-5 text-caption text-pin-olive">
+      Saving converts the document to Markdown with frontmatter and downloads it. Drop the file into
+      <code>/posts</code> and push to GitHub to publish. Images upload to <code>/api/upload</code> when a
+      server is available (see comments in <code>src/pages/api/upload.ts</code>); on a static host like GitHub
+      Pages they fall back to embedded data URLs automatically.
+    </p>
+  </section>
+
+  <style is:global>
+    .ProseMirror p.is-editor-empty:first-child::before {
+      content: attr(data-placeholder);
+      float: left;
+      color: #91918c;
+      pointer-events: none;
+      height: 0;
+    }
+    .ProseMirror img[data-loading="true"] {
+      background: repeating-linear-gradient(45deg, #ecece6 0 12px, #f6f6f3 12px 24px);
+      min-height: 160px;
+    }
+    .ProseMirror img[data-broken="true"] {
+      background: repeating-linear-gradient(45deg, #ecece6 0 12px, #f6f6f3 12px 24px);
+      border: 1.5px dashed #bcbcb3;
+      min-height: 140px;
+      cursor: copy;
+    }
+  </style>
+
+  <script type="module">
+    import { Editor } from 'https://esm.sh/@tiptap/core@2.11.5';
+    import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2.11.5';
+    import Image from 'https://esm.sh/@tiptap/extension-image@2.11.5';
+    import Placeholder from 'https://esm.sh/@tiptap/extension-placeholder@2.11.5';
+    import TurndownService from 'https://esm.sh/turndown@7.2.0';
+
+    // Track upload-in-flight images by a temporary id so we can find and
+    // update the right ProseMirror node once the upload settles.
+    const ImageWithUploadId = Image.extend({
+      addAttributes() {
+        return {
+          ...this.parent?.(),
+          'data-upload-id': { default: null },
+        };
+      },
+    });
+
+    const editor = new Editor({
+      element: document.getElementById('editor'),
+      extensions: [
+        StarterKit,
+        ImageWithUploadId,
+        Placeholder.configure({ placeholder: 'Type here — # for heading, - for list, > for quote. Paste or drop images.' }),
+      ],
+    });
+
+    const editorEl = document.getElementById('editor');
+
+    // ---- Image upload, mimicking Notion: skeleton while uploading, never
+    // a giant base64 blob in the saved markdown when a real upload works. ----
+
+    function skeletonDataUri() {
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360">' +
+        '<defs><pattern id="s" width="24" height="24" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">' +
+        '<rect width="12" height="24" fill="#ecece6"/><rect x="12" width="12" height="24" fill="#f6f6f3"/></pattern></defs>' +
+        '<rect width="640" height="360" fill="url(#s)"/></svg>';
+      return 'data:image/svg+xml;base64,' + btoa(svg);
+    }
+
+    async function uploadFile(file) {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: form });
+      if (!res.ok) throw new Error('upload failed');
+      const { url } = await res.json();
+      return url;
+    }
+
+    function fileToDataUri(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function findImagePos(uploadId) {
+      let pos = null;
+      editor.state.doc.descendants((node, p) => {
+        if (node.type.name === 'image' && node.attrs['data-upload-id'] === uploadId) pos = p;
+      });
+      return pos;
+    }
+
+    async function insertImageFile(file) {
+      const uploadId = 'up-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      editor.chain().focus().setImage({ src: skeletonDataUri(), alt: file.name, 'data-upload-id': uploadId }).run();
+      // Mark the just-inserted <img> as loading for the skeleton stripe style.
+      requestAnimationFrame(() => {
+        const img = editorEl.querySelector('img[data-upload-id="' + uploadId + '"]');
+        if (img) img.setAttribute('data-loading', 'true');
+      });
+
+      let finalSrc;
+      try {
+        finalSrc = await uploadFile(file);
+      } catch {
+        // No upload server available (e.g. static GitHub Pages deploy) —
+        // fall back to embedding the image directly so no work is lost.
+        finalSrc = await fileToDataUri(file);
+      }
+
+      const pos = findImagePos(uploadId);
+      if (pos != null) {
+        const node = editor.state.doc.nodeAt(pos);
+        editor.view.dispatch(
+          editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, src: finalSrc })
+        );
+      }
+    }
+
+    editorEl.addEventListener('paste', (e) => {
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      for (const it of items) {
+        if (it.type.indexOf('image') === 0) {
+          e.preventDefault();
+          insertImageFile(it.getAsFile());
+        }
+      }
+    });
+    editorEl.addEventListener('dragover', (e) => e.preventDefault());
+    editorEl.addEventListener('drop', (e) => {
+      // Dropping onto a broken image replaces just that image (Notion-style).
+      if (e.target instanceof HTMLImageElement && e.target.dataset.broken === 'true') {
+        const files = e.dataTransfer && e.dataTransfer.files;
+        const file = files && files[0];
+        if (file && file.type.indexOf('image') === 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          replaceBrokenImage(e.target, file);
+        }
+        return;
+      }
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (!files || files.length === 0) return;
+      e.preventDefault();
+      for (const f of files) {
+        if (f.type.indexOf('image') === 0) insertImageFile(f);
+      }
+    });
+
+    // ---- Broken images (e.g. after importing a .md with a local path that
+    // doesn't exist here) — flag them and let the user drop a replacement. ----
+    async function replaceBrokenImage(imgEl, file) {
+      imgEl.removeAttribute('data-broken');
+      imgEl.setAttribute('data-loading', 'true');
+      let finalSrc;
+      try {
+        finalSrc = await uploadFile(file);
+      } catch {
+        finalSrc = await fileToDataUri(file);
+      }
+      let pos = null;
+      editor.state.doc.descendants((node, p) => {
+        if (node.type.name === 'image' && editor.view.nodeDOM(p) === imgEl) pos = p;
+      });
+      if (pos != null) {
+        const node = editor.state.doc.nodeAt(pos);
+        editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, src: finalSrc }));
+      } else {
+        imgEl.src = finalSrc;
+      }
+    }
+
+    editorEl.addEventListener(
+      'error',
+      (e) => {
+        const img = e.target;
+        if (img instanceof HTMLImageElement && img.dataset.broken !== 'true' && !img.src.startsWith('data:image/svg+xml')) {
+          img.dataset.broken = 'true';
+          img.alt = 'Image not found — drop a new image here to replace it';
+          img.title = img.alt;
+        }
+      },
+      true
+    );
+
+    function slugify(v) {
+      return v.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    }
+
+    // ---- Edit an existing post: prefill from /posts/<slug>.json ----
+    const editSlug = new URLSearchParams(location.search).get('edit');
+    const form = document.getElementById('post-form');
+    const submitBtn = document.getElementById('submit-btn');
+    let editingSlug = null;
+
+    function markdownToHtml(body) {
+      const lines = body.split('\n');
+      let html = '';
+      let inCode = false, codeLang = '', codeLines = [], para = [];
+      const inlineMd = (s) => s
+        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/`(.+?)`/g, '<code>$1</code>');
+      const flushPara = () => { if (para.length) { html += '<p>' + inlineMd(para.join(' ')) + '</p>'; para = []; } };
+      for (const line of lines) {
+        const fence = line.match(/^```(\w*)/);
+        if (fence) {
+          if (!inCode) { flushPara(); inCode = true; codeLang = fence[1] || ''; codeLines = []; }
+          else { html += '<pre><code>' + codeLines.join('\n').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</code></pre>'; inCode = false; }
+          continue;
+        }
+        if (inCode) { codeLines.push(line); continue; }
+        const h = line.match(/^(#{1,3})\s+(.*)/);
+        if (h) { flushPara(); html += '<h' + h[1].length + '>' + inlineMd(h[2]) + '</h' + h[1].length + '>'; continue; }
+        if (line.trim() === '') { flushPara(); continue; }
+        para.push(line);
+      }
+      if (inCode) html += '<pre><code>' + codeLines.join('\n') + '</code></pre>';
+      flushPara();
+      return html || '<p></p>';
+    }
+
+    if (editSlug) {
+      fetch('/posts/' + encodeURIComponent(editSlug) + '.json')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!data) return;
+          editingSlug = data.slug;
+          document.getElementById('page-heading').textContent = 'Edit Post';
+          submitBtn.textContent = 'Save changes — download .md';
+          document.getElementById('help-text').innerHTML =
+            'Downloads an updated <code>' + data.slug + '.md</code> — replace the existing file of the same name in <code>/posts</code> and push.';
+          form.title.value = data.title || '';
+          form.tags.value = (data.tags || []).join(', ');
+          form.category.value = data.category || '';
+          form.date.value = data.date || '';
+          editor.commands.setContent(markdownToHtml(data.body || ''));
+        })
+        .catch(() => {});
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const title = (f.get('title') || '').toString().trim();
+      if (!title) return;
+      const tags = (f.get('tags') || '').toString().split(',').map((t) => t.trim()).filter(Boolean);
+      const category = (f.get('category') || '').toString().trim() || 'General';
+      const date = (f.get('date') || '').toString().trim() || new Date().toISOString().slice(0, 10);
+
+      const html = editor.getHTML();
+      const firstImg = new DOMParser().parseFromString(html, 'text/html').querySelector('img');
+      const thumbnail = firstImg ? firstImg.getAttribute('src') : '';
+
+      const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
+      const markdown = td.turndown(html);
+
+      const fm = '---\n' +
+        'title: "' + title.replace(/"/g, '\\"') + '"\n' +
+        'date: ' + date + '\n' +
+        'category: "' + category.replace(/"/g, '\\"') + '"\n' +
+        'tags: [' + tags.map((t) => '"' + t.replace(/"/g, '\\"') + '"').join(', ') + ']\n' +
+        (thumbnail ? 'thumbnail: "' + thumbnail + '"\n' : '') +
+        '---\n\n' + markdown + '\n';
+
+      const blob = new Blob([fm], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (editingSlug || slugify(title)) + '.md';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</BaseLayout>

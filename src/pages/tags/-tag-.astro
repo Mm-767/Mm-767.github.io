@@ -1,0 +1,30 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import MasonryGrid from '../../components/MasonryGrid.astro';
+import PinCard from '../../components/PinCard.astro';
+import { getAllPosts, getAllTags, slugify } from '../../lib/posts';
+
+export async function getStaticPaths() {
+  const tags = await getAllTags();
+  const posts = await getAllPosts();
+  return tags.map((tag) => ({
+    params: { tag: tag.slug },
+    props: {
+      tag,
+      posts: posts.filter((p) => p.data.tags.some((t) => slugify(t) === tag.slug)),
+    },
+  }));
+}
+const { tag, posts } = Astro.props;
+---
+<BaseLayout title={'Tag: ' + tag.name}>
+  <section class="mx-auto max-w-[1440px] px-4 py-10">
+    <p class="text-caption-bold text-pin-olive"><a href="/tags" class="hover:text-pin-red">Tags</a> / {tag.name}</p>
+    <h1 class="mt-1 text-heading text-pin-plum">{tag.name} <span class="font-normal text-pin-olive">({posts.length})</span></h1>
+    <div class="mt-6">
+      <MasonryGrid>
+        {posts.map((post) => <PinCard post={post} />)}
+      </MasonryGrid>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,190 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import MasonryGrid from '../../components/MasonryGrid.astro';
+import PinCard from '../../components/PinCard.astro';
+import TagBadge from '../../components/TagBadge.astro';
+import { getAllPosts, formatDate } from '../../lib/posts';
+import { render } from 'astro:content';
+import { ArrowLeft, Pencil } from '@lucide/astro';
+
+export async function getStaticPaths() {
+  const posts = await getAllPosts();
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { Content, headings } = await render(post);
+
+// ToC: only h2/h3 so the sidebar stays scannable on long dev posts.
+const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
+
+const allPosts = await getAllPosts();
+const related = allPosts
+  .filter((p) => p.id !== post.id && (p.data.category === post.data.category || p.data.tags.some((t) => post.data.tags.includes(t))))
+  .slice(0, 3);
+---
+<BaseLayout title={post.data.title} description={post.data.description}>
+  <article class="post-article mx-auto max-w-[1080px] px-4 pb-20 pt-10">
+    <a href="/" class="mb-6 inline-flex items-center gap-1.5 text-caption-bold text-pin-olive hover:text-pin-red">
+      <ArrowLeft size={16} /> Back to Grid
+    </a>
+
+    {post.data.thumbnail ? (
+      <img
+        src={post.data.thumbnail}
+        alt={post.data.title}
+        class="mb-8 w-full rounded-pin-hero object-cover"
+        style="max-height:560px"
+      />
+    ) : (
+      <div class="mb-8 flex h-[280px] w-full items-center justify-center rounded-pin-hero bg-pin-warm-light">
+        <span class="font-mono text-caption text-pin-silver">cover image</span>
+      </div>
+    )}
+
+    <header class="mb-10 flex flex-col gap-4">
+      <h1 class="text-[36px] font-semibold leading-[1.15] tracking-[-0.8px] text-pin-plum sm:text-[44px]">
+        {post.data.title}
+      </h1>
+      <div class="flex flex-wrap items-center gap-3 text-caption text-pin-olive">
+        <span class="font-bold text-pin-plum">{post.data.category}</span>
+        <span>&middot;</span>
+        <span>{formatDate(post.data.date)}</span>
+      </div>
+      {post.data.tags.length > 0 && (
+        <div class="flex flex-wrap gap-1.5">
+          {post.data.tags.map((tag) => <TagBadge tag={tag} />)}
+        </div>
+      )}
+      <div class="mt-2 flex gap-2.5">
+        <a href="/" class="inline-flex items-center gap-1.5 rounded-pin bg-pin-sand px-4 py-2 text-caption-bold text-pin-plum hover:text-pin-red">
+          <ArrowLeft size={14} /> Back
+        </a>
+        <a href={'/new?edit=' + post.id} class="inline-flex items-center gap-1.5 rounded-pin bg-pin-plum px-4 py-2 text-caption-bold text-white hover:bg-pin-dark">
+          <Pencil size={14} /> Edit Post
+        </a>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 gap-10 lg:grid-cols-[220px_1fr]">
+      {toc.length > 0 && (
+        <aside class="hidden lg:block">
+          <nav class="post-toc sticky top-24 flex flex-col gap-2 border-l border-pin-warm-light pl-4">
+            <p class="mb-1 text-caption-bold text-pin-silver">On this page</p>
+            {toc.map((h) => (
+              <a
+                href={'#' + h.slug}
+                class:list={['text-caption text-pin-olive hover:text-pin-red', h.depth === 3 && 'pl-3']}
+                data-toc-link={h.slug}
+              >{h.text}</a>
+            ))}
+          </nav>
+        </aside>
+      )}
+
+      <div
+        class="prose prose-slate max-w-none text-body text-pin-plum
+          prose-headings:font-sans prose-headings:font-bold prose-headings:tracking-[-0.4px] prose-headings:text-pin-plum
+          prose-h2:mt-10 prose-h2:text-[24px] prose-h3:mt-8 prose-h3:text-[19px]
+          prose-p:leading-[1.5] prose-a:text-pin-link prose-a:no-underline hover:prose-a:text-pin-red
+          prose-strong:text-pin-plum prose-code:before:content-none prose-code:after:content-none
+          prose-img:rounded-pin-lg prose-blockquote:border-pin-red prose-blockquote:text-pin-olive"
+      >
+        {Content ? <Content /> : <p class="text-pin-olive">This post has no body content.</p>}
+      </div>
+    </div>
+
+    {related.length > 0 && (
+      <section class="mt-20 border-t border-pin-warm-light pt-10">
+        <h2 class="mb-5 text-[22px] font-bold tracking-[-0.4px] text-pin-plum">More from this tag</h2>
+        <MasonryGrid>
+          {related.map((p) => <PinCard post={p} />)}
+        </MasonryGrid>
+      </section>
+    )}
+  </article>
+
+  <style is:global>
+    /* Code blocks: dark surface, matches design system's pin-dark token */
+    .post-article pre {
+      position: relative;
+      background: #33332e !important;
+      border-radius: 12px;
+      padding: 18px 20px !important;
+      font-size: 13px;
+      line-height: 1.6;
+      overflow-x: auto;
+    }
+    .post-article pre code {
+      background: transparent;
+      font-family: ui-monospace, Menlo, monospace;
+    }
+    .post-article :not(pre) > code {
+      background: #e5e5e0;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 0.9em;
+    }
+    .post-copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #211922;
+      color: #f6f6f3;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 9px;
+      font-size: 11px;
+      font-family: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      opacity: 0.85;
+    }
+    .post-copy-btn:hover { opacity: 1; background: #33332e; }
+    .post-toc a[data-active="true"] { color: #e60023; font-weight: 700; }
+  </style>
+
+  <script>
+    // Copy-to-clipboard button on every rendered code block.
+    const COPY_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>';
+    const CHECK_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+    document.querySelectorAll('.post-article pre').forEach((pre) => {
+      const btn = document.createElement('button');
+      btn.className = 'post-copy-btn';
+      btn.type = 'button';
+      btn.innerHTML = COPY_ICON + '<span>Copy</span>';
+      btn.addEventListener('click', async () => {
+        const code = pre.querySelector('code');
+        await navigator.clipboard.writeText((code || pre).innerText);
+        btn.innerHTML = CHECK_ICON + '<span>Copied</span>';
+        setTimeout(() => { btn.innerHTML = COPY_ICON + '<span>Copy</span>'; }, 1500);
+      });
+      pre.appendChild(btn);
+    });
+
+    // Scroll-spy: highlight the active ToC entry.
+    const links = Array.from(document.querySelectorAll('[data-toc-link]'));
+    const targets = links
+      .map((l) => document.getElementById(l.getAttribute('data-toc-link') || ''))
+      .filter(Boolean);
+    if (targets.length) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            const link = links.find((l) => l.getAttribute('data-toc-link') === entry.target.id);
+            if (link && entry.isIntersecting) {
+              links.forEach((l) => l.removeAttribute('data-active'));
+              link.setAttribute('data-active', 'true');
+            }
+          });
+        },
+        { rootMargin: '-20% 0px -70% 0px' }
+      );
+      targets.forEach((t) => observer.observe(t));
+    }
+  </script>
+</BaseLayout>

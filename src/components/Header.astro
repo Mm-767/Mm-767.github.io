@@ -1,0 +1,24 @@
+---
+import { Search } from '@lucide/astro';
+import { SITE_TITLE } from '../consts';
+---
+<header class="sticky top-0 z-20 border-b border-pin-warm-light bg-pin-sand/95 backdrop-blur">
+  <div class="mx-auto flex max-w-[1440px] items-center gap-6 px-4 py-3">
+    <a href="/" class="flex items-center gap-2 text-body font-bold text-pin-plum">
+      <span class="flex h-7 w-7 items-center justify-center rounded-full bg-pin-red text-[13px] font-bold text-white">G</span>
+      {SITE_TITLE}
+    </a>
+    <nav class="hidden items-center gap-4 text-caption-bold text-pin-plum sm:flex">
+      <a href="/" class="hover:text-pin-red">Home</a>
+    </nav>
+    <form action="/search" method="get" class="ml-auto flex max-w-[420px] flex-1 items-center gap-2 rounded-pin border border-pin-silver bg-white px-[15px] py-[9px] focus-within:ring-2 focus-within:ring-pin-focus">
+      <Search size={16} class="shrink-0 text-pin-olive" />
+      <input
+        name="q"
+        type="search"
+        placeholder="Search posts"
+        class="w-full bg-transparent text-caption text-pin-plum outline-none placeholder:text-pin-silver"
+      />
+    </form>
+  </div>
+</header>

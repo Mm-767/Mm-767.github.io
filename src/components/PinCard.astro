@@ -1,0 +1,42 @@
+---
+import TagBadge from './TagBadge.astro';
+import { formatDate, slugify, type Post } from '../lib/posts';
+
+interface Props {
+  post: Post;
+}
+const { post } = Astro.props;
+const href = '/posts/' + post.id;
+---
+<article class="mb-4 break-inside-avoid">
+  <div class="group overflow-hidden rounded-pin-lg bg-white transition-colors">
+    <a href={href} class="block">
+      {post.data.thumbnail ? (
+        <img
+          src={post.data.thumbnail}
+          alt={post.data.title}
+          loading="lazy"
+          class="w-full transition-transform duration-200 group-hover:scale-[1.02]"
+        />
+      ) : (
+        <div class="flex h-32 items-center justify-center bg-pin-warm-light text-caption text-pin-silver">
+          {post.data.category}
+        </div>
+      )}
+    </a>
+    <div class="flex flex-col gap-1.5 px-4 pb-4 pt-3">
+      <p class="text-caption text-pin-olive">
+        <a href={'/categories/' + slugify(post.data.category)} class="font-bold hover:text-pin-red">{post.data.category}</a>
+        &nbsp;&middot;&nbsp;{formatDate(post.data.date)}
+      </p>
+      <a href={href}>
+        <h2 class="text-caption-bold leading-snug text-pin-plum hover:text-pin-red">{post.data.title}</h2>
+      </a>
+      {post.data.tags.length > 0 && (
+        <div class="mt-1 flex flex-wrap gap-1.5">
+          {post.data.tags.map((tag) => <TagBadge tag={tag} small />)}
+        </div>
+      )}
+    </div>
+  </div>
+</article>

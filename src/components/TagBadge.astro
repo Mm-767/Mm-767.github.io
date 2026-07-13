@@ -1,0 +1,16 @@
+---
+import { slugify } from '../lib/posts';
+
+interface Props {
+  tag: string;
+  small?: boolean;
+}
+const { tag, small = false } = Astro.props;
+---
+<a
+  href={'/tags/' + slugify(tag)}
+  class:list={[
+    'inline-flex items-center rounded-full bg-pin-warm-light text-pin-plum hover:bg-pin-hover-gray',
+    small ? 'px-2.5 py-0.5 text-[11px]' : 'px-3 py-1 text-caption',
+  ]}
+>{tag}</a>

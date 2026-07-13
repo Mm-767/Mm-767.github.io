@@ -1,0 +1,39 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import MasonryGrid from '../components/MasonryGrid.astro';
+import PinCard from '../components/PinCard.astro';
+import NewPostCard from '../components/NewPostCard.astro';
+import { getAllPosts, getAllTags } from '../lib/posts';
+import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
+
+const posts = await getAllPosts();
+const tags = await getAllTags();
+---
+<BaseLayout>
+  <section class="mx-auto max-w-[1440px] px-4 pb-6 pt-12 text-center">
+    <h1 class="text-[44px] font-semibold leading-[1.05] tracking-[-1.2px] text-pin-plum md:text-[56px]">{SITE_TITLE}</h1>
+    <p class="mt-3 text-body text-pin-olive">{SITE_DESCRIPTION}</p>
+    <div class="mt-6 flex flex-wrap justify-center gap-2">
+      <a href="/" class="rounded-full bg-pin-plum px-4 py-2 text-caption-bold text-white">All</a>
+      {tags.map((t) => (
+        <a href={'/tags/' + t.slug} class="rounded-full bg-pin-warm-light px-4 py-2 text-caption-bold text-pin-plum hover:bg-pin-hover-gray">{t.name}</a>
+      ))}
+      <a
+        href="/tags"
+        title="Add a tag in a post's frontmatter and it appears here automatically"
+        class="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-pin-warm-light text-pin-plum hover:bg-pin-hover-gray"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+      </a>
+    </div>
+  </section>
+  <section class="mx-auto max-w-[1440px] px-4 pb-8">
+    <MasonryGrid>
+      <NewPostCard />
+      {posts.map((post) => <PinCard post={post} />)}
+    </MasonryGrid>
+    {posts.length === 0 && (
+      <p class="px-1 pt-2 text-body text-pin-olive">No posts yet — click Create Post to write your first one.</p>
+    )}
+  </section>
+</BaseLayout>
