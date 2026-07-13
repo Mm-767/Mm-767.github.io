@@ -434,11 +434,12 @@ import { ArrowLeft } from '@lucide/astro';
         if (!res.ok) throw new Error('Save endpoint returned ' + res.status);
         const data = await res.json();
         if (data.gitError) {
-          // Saved to /posts locally, but the automatic commit/push failed
-          // (no git identity configured, rejected push, ...) — stay on the
-          // page and say so instead of redirecting as if it fully published.
+          // Saved to /posts locally, but the automatic commit failed (no git
+          // identity configured, no repo, ...) — stay on the page and say so
+          // instead of redirecting as if it published. (The push itself runs
+          // in the background; its failures are logged to the dev terminal.)
           saveError.textContent =
-            'Saved locally (posts/' + built.slug + '.md) but the automatic git push failed: ' + data.gitError +
+            'Saved locally (posts/' + built.slug + '.md) but the automatic git commit failed: ' + data.gitError +
             ' — run git add/commit/push yourself to publish it.';
           saveError.classList.remove('hidden');
           return;

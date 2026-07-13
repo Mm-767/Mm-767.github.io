@@ -18,13 +18,6 @@ const tags = await getAllTags();
       {tags.map((t) => (
         <a href={'/tags/' + t.slug} class="rounded-full bg-pin-warm-light px-4 py-2 text-caption-bold text-pin-plum hover:bg-pin-hover-gray">{t.name}</a>
       ))}
-      <a
-        href="/tags"
-        title="Add a tag in a post's frontmatter and it appears here automatically"
-        class="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-pin-warm-light text-pin-plum hover:bg-pin-hover-gray"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
-      </a>
     </div>
   </section>
   <section class="mx-auto max-w-[1440px] px-4 pb-8">

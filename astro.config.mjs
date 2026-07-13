@@ -36,41 +36,56 @@ async function git(cwd, args) {
   }
 }
 
-// git add/commit/push for one file. Returns { committed, pushed }
+// git add + commit for one file (local, fast). Returns { committed }
 // ({ committed: false } when re-saving unchanged content — nothing to do).
-// Throws with git's real stderr on any failure so the caller can report it
-// instead of pretending publish succeeded.
-//
-// Push is resilient to the common "remote moved ahead" (non-fast-forward)
-// rejection: on the first push failure it fetches + rebases the current
-// branch onto its upstream and retries once. That covers the usual case
-// where the local branch fell behind origin/main between saves.
-async function gitPublish(cwd, relPath, message) {
+// Throws with git's real stderr on failure (no repo, no identity, ...) so
+// the caller can report it.
+async function gitCommit(cwd, relPath, message) {
   await git(cwd, ['add', relPath]);
   const status = await git(cwd, ['status', '--porcelain', '--', relPath]);
-  if (!status) return { committed: false, pushed: false };
+  if (!status) return { committed: false };
   await git(cwd, ['commit', '-m', message]);
+  return { committed: true };
+}
 
+// git push (network, slow) with recovery from the common "remote moved
+// ahead" (non-fast-forward) rejection: on failure, fetch + rebase the
+// current branch onto its upstream and retry once.
+async function gitPush(cwd) {
   try {
     await git(cwd, ['push']);
   } catch (pushErr) {
-    // Try to recover from a non-fast-forward rejection, then push again.
-    // If the rebase or the second push fails, surface that error.
     const branch = await git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
     try {
       await git(cwd, ['pull', '--rebase', 'origin', branch]);
     } catch {
-      throw pushErr; // rebase couldn't help (conflicts, no upstream, auth) — report original
+      throw pushErr;
     }
     await git(cwd, ['push']);
   }
-  return { committed: true, pushed: true };
 }
 
-// Dev-only /api/save: writes a post's Markdown straight into /posts, then
-// commits and pushes it so saving actually publishes to GitHub Pages
-// without a separate manual git step. NOTE: `git push` sends every
-// unpushed local commit on the current branch, not just this one file.
+// Serialize background pushes so two quick saves don't race each other.
+let pushQueue = Promise.resolve();
+function queuePush(cwd) {
+  pushQueue = pushQueue.then(() => gitPush(cwd)).catch((err) => {
+    // Nothing is awaiting this — surface it in the dev terminal so a failed
+    // publish (bad auth, unresolvable conflict) isn't silent. The commit is
+    // already on disk locally; `git push` from a terminal will retry it.
+    console.error('\n[save] git push failed — post is committed locally but NOT published to GitHub:\n' +
+      (err instanceof Error ? err.message : String(err)) + '\n');
+  });
+  return pushQueue;
+}
+
+// Dev-only /api/save: writes a post's Markdown into /posts and commits it,
+// then responds so the editor can redirect home immediately. The actual
+// `git push` runs in the background (queuePush) — it's a slow network call,
+// and if we awaited it the editor page would get reloaded by Astro's
+// content watcher (triggered by the new .md file) before the response
+// arrived, killing the redirect. Committing first is fast and local, so the
+// response wins that race. NOTE: `git push` sends every unpushed local
+// commit on the current branch, not just this one file.
 //
 // This is deliberately Vite dev-server middleware, NOT an Astro API route
 // (src/pages/api/*.ts). An Astro route needs `prerender = false` to run
@@ -113,16 +128,18 @@ function localSaveApi() {
 
             res.setHeader('Content-Type', 'application/json');
             try {
-              const publish = await gitPublish(cwd, path.join('posts', `${slug}.md`), commitMessageFor(content, slug, isNew));
-              res.end(JSON.stringify({ ok: true, slug, publish }));
+              const { committed } = await gitCommit(cwd, path.join('posts', `${slug}.md`), commitMessageFor(content, slug, isNew));
+              // Respond now; push to GitHub in the background.
+              res.end(JSON.stringify({ ok: true, slug, committed }));
+              if (committed) queuePush(cwd);
             } catch (gitErr) {
               // File is safely on disk even if git failed — report that
               // separately so the client can tell "saved locally" from
-              // "actually published" instead of treating this as a full failure.
+              // "actually committed" instead of treating this as a full failure.
               res.end(JSON.stringify({
                 ok: true,
                 slug,
-                publish: { committed: false, pushed: false },
+                committed: false,
                 gitError: gitErr instanceof Error ? gitErr.message : String(gitErr),
               }));
             }
