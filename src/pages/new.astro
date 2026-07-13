@@ -32,7 +32,7 @@ import { ArrowLeft } from '@lucide/astro';
           class="prose min-h-[420px] w-full max-w-none rounded-pin border border-pin-silver bg-white px-6 py-5 text-pin-plum outline-none focus-within:ring-2 focus-within:ring-pin-focus prose-headings:text-pin-plum prose-img:rounded-pin-sm [&_.ProseMirror]:min-h-[380px] [&_.ProseMirror]:outline-none"></div>
       </div>
       <div class="flex gap-2.5">
-        <button id="submit-btn" type="submit" class="rounded-pin bg-pin-red px-5 py-2.5 text-caption-bold text-black hover:text-white">Save — download .md</button>
+        <button id="submit-btn" type="submit" class="rounded-pin bg-pin-red px-5 py-2.5 text-caption-bold text-black hover:text-white">Save Post</button>
         <label class="cursor-pointer rounded-pin bg-pin-sand px-5 py-2.5 text-caption-bold text-pin-plum hover:text-pin-red">
           Import .md
           <input id="md-file-input" type="file" accept=".md,text/markdown" class="hidden" />
@@ -42,10 +42,12 @@ import { ArrowLeft } from '@lucide/astro';
     </form>
 
     <p id="help-text" class="mt-5 text-caption text-pin-olive">
-      Saving converts the document to Markdown with frontmatter and downloads it. Drop the file into
-      <code>/posts</code> and push to GitHub to publish. Images upload to <code>/api/upload</code> when a
-      server is available (see comments in <code>src/pages/api/upload.ts</code>); on a static host like GitHub
-      Pages they fall back to embedded data URLs automatically.
+      Saving converts the document to Markdown with frontmatter. While running <code>npm run dev</code> locally,
+      it writes the file straight into <code>/posts</code> and takes you back home to see it. Without a local
+      dev server (e.g. after <code>npm run build</code> / on GitHub Pages) it downloads the <code>.md</code>
+      instead — drop that file into <code>/posts</code> and push to GitHub to publish. Either way, push your
+      changes to GitHub afterwards to publish. Images upload the same way when a dev server is available; on a
+      static host they fall back to embedded data URLs automatically.
     </p>
   </section>
 
@@ -348,7 +350,7 @@ import { ArrowLeft } from '@lucide/astro';
         .catch(() => {});
     }
 
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const f = new FormData(e.target);
       const title = (f.get('title') || '').toString().trim();
@@ -386,11 +388,35 @@ import { ArrowLeft } from '@lucide/astro';
         (thumbnail ? 'thumbnail: "' + thumbnail + '"\n' : '') +
         '---\n\n' + markdown + '\n';
 
+      const slug = editingSlug || slugify(title);
+
+      // Local dev server (astro dev) writes the file straight into /posts
+      // and takes you to the home page. No server there (astro preview,
+      // GitHub Pages) — fall back to downloading the .md for manual placement.
+      submitBtn.disabled = true;
+      const originalLabel = submitBtn.textContent;
+      submitBtn.textContent = 'Saving…';
+      try {
+        const res = await fetch('/api/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, content: fm }),
+        });
+        if (!res.ok) throw new Error('save failed');
+        location.href = '/';
+        return;
+      } catch {
+        // fall through to download
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalLabel;
+      }
+
       const blob = new Blob([fm], { type: 'text/markdown' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = (editingSlug || slugify(title)) + '.md';
+      a.download = slug + '.md';
       document.body.appendChild(a);
       a.click();
       a.remove();
