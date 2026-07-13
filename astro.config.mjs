@@ -1,7 +1,12 @@
 import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import path from 'node:path';
+
+const execFileAsync = promisify(execFile);
 
 function slugify(value) {
   return String(value || '')
@@ -12,7 +17,30 @@ function slugify(value) {
     .slice(0, 80);
 }
 
-// Dev-only /api/save: writes a post's Markdown straight into /posts.
+function commitMessageFor(content, slug, isNew) {
+  const m = content.match(/title:\s*"([^"]*)"/);
+  const title = m ? m[1] : slug;
+  return (isNew ? 'Add post: ' : 'Update post: ') + title;
+}
+
+// Best-effort git add/commit/push for one file. Returns { committed, pushed }
+// on success ({ committed: false } if there was nothing to commit — e.g.
+// re-saving unchanged content). Throws on any git failure (no git repo, no
+// configured identity, rejected push, ...) so the caller can report it
+// without pretending the publish step succeeded.
+async function gitPublish(cwd, relPath, message) {
+  await execFileAsync('git', ['add', relPath], { cwd });
+  const { stdout } = await execFileAsync('git', ['status', '--porcelain', '--', relPath], { cwd });
+  if (!stdout.trim()) return { committed: false, pushed: false };
+  await execFileAsync('git', ['commit', '-m', message], { cwd });
+  await execFileAsync('git', ['push'], { cwd });
+  return { committed: true, pushed: true };
+}
+
+// Dev-only /api/save: writes a post's Markdown straight into /posts, then
+// commits and pushes it so saving actually publishes to GitHub Pages
+// without a separate manual git step. NOTE: `git push` sends every
+// unpushed local commit on the current branch, not just this one file.
 //
 // This is deliberately Vite dev-server middleware, NOT an Astro API route
 // (src/pages/api/*.ts). An Astro route needs `prerender = false` to run
@@ -46,11 +74,28 @@ function localSaveApi() {
               res.end(JSON.stringify({ error: 'Missing title or content' }));
               return;
             }
-            const postsDir = path.join(process.cwd(), 'posts');
+            const cwd = process.cwd();
+            const postsDir = path.join(cwd, 'posts');
             await mkdir(postsDir, { recursive: true });
-            await writeFile(path.join(postsDir, `${slug}.md`), content, 'utf8');
+            const filePath = path.join(postsDir, `${slug}.md`);
+            const isNew = !existsSync(filePath);
+            await writeFile(filePath, content, 'utf8');
+
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: true, slug }));
+            try {
+              const publish = await gitPublish(cwd, path.join('posts', `${slug}.md`), commitMessageFor(content, slug, isNew));
+              res.end(JSON.stringify({ ok: true, slug, publish }));
+            } catch (gitErr) {
+              // File is safely on disk even if git failed — report that
+              // separately so the client can tell "saved locally" from
+              // "actually published" instead of treating this as a full failure.
+              res.end(JSON.stringify({
+                ok: true,
+                slug,
+                publish: { committed: false, pushed: false },
+                gitError: gitErr instanceof Error ? gitErr.message : String(gitErr),
+              }));
+            }
           } catch (err) {
             res.statusCode = 500;
             res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'Save failed' }));

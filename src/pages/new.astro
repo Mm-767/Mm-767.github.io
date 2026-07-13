@@ -44,12 +44,12 @@ import { ArrowLeft } from '@lucide/astro';
     </form>
 
     <p id="help-text" class="mt-5 text-caption text-pin-olive">
-      <strong>Save Post</strong> requires <code>npm run dev</code> running locally — it writes the file straight
-      into <code>/posts</code> and takes you back home to see it. If it can't reach the local server it shows an
-      error instead of guessing; use <strong>Download .md</strong> to get the file yourself and drop it into
-      <code>/posts</code> manually. Either way, push your changes to GitHub afterwards to publish. Images upload
-      the same way when a dev server is available; on a static host they fall back to embedded data URLs
-      automatically.
+      <strong>Save Post</strong> requires <code>npm run dev</code> running locally — it writes the file into
+      <code>/posts</code>, then automatically <code>git commit</code>s and <code>push</code>es it, so saving
+      publishes straight to GitHub Pages (a few minutes for the Actions build). If it can't reach the local
+      server, or the commit/push fails, it shows an error instead of guessing — use <strong>Download .md</strong>
+      to get the file yourself. Images upload the same way when a dev server is available; on a static host they
+      fall back to embedded data URLs automatically.
     </p>
   </section>
 
@@ -432,6 +432,17 @@ import { ArrowLeft } from '@lucide/astro';
           body: JSON.stringify(built),
         });
         if (!res.ok) throw new Error('Save endpoint returned ' + res.status);
+        const data = await res.json();
+        if (data.gitError) {
+          // Saved to /posts locally, but the automatic commit/push failed
+          // (no git identity configured, rejected push, ...) — stay on the
+          // page and say so instead of redirecting as if it fully published.
+          saveError.textContent =
+            'Saved locally (posts/' + built.slug + '.md) but the automatic git push failed: ' + data.gitError +
+            ' — run git add/commit/push yourself to publish it.';
+          saveError.classList.remove('hidden');
+          return;
+        }
         location.href = '/';
         return;
       } catch {
