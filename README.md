@@ -10,6 +10,7 @@ Astro + Tailwind CSS static blog. Write Markdown in `/posts`, push to GitHub, an
 npm install
 npm run dev      # http://localhost:4321
 npm run build    # static site in dist/
+https://mm-767.github.io/
 ```
 
 ## Writing a post
