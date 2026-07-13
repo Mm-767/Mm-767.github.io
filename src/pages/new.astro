@@ -31,23 +31,25 @@ import { ArrowLeft } from '@lucide/astro';
         <div id="editor"
           class="prose min-h-[420px] w-full max-w-none rounded-pin border border-pin-silver bg-white px-6 py-5 text-pin-plum outline-none focus-within:ring-2 focus-within:ring-pin-focus prose-headings:text-pin-plum prose-img:rounded-pin-sm [&_.ProseMirror]:min-h-[380px] [&_.ProseMirror]:outline-none"></div>
       </div>
-      <div class="flex gap-2.5">
+      <div class="flex flex-wrap gap-2.5">
         <button id="submit-btn" type="submit" class="rounded-pin bg-pin-red px-5 py-2.5 text-caption-bold text-black hover:text-white">Save Post</button>
+        <button id="download-btn" type="button" class="rounded-pin bg-pin-sand px-5 py-2.5 text-caption-bold text-pin-plum hover:text-pin-red">Download .md</button>
         <label class="cursor-pointer rounded-pin bg-pin-sand px-5 py-2.5 text-caption-bold text-pin-plum hover:text-pin-red">
           Import .md
           <input id="md-file-input" type="file" accept=".md,text/markdown" class="hidden" />
         </label>
         <a href="/" class="rounded-pin bg-pin-sand px-5 py-2.5 text-caption-bold text-pin-plum hover:text-pin-red">Cancel</a>
       </div>
+      <p id="save-error" class="hidden text-caption text-pin-error"></p>
     </form>
 
     <p id="help-text" class="mt-5 text-caption text-pin-olive">
-      Saving converts the document to Markdown with frontmatter. While running <code>npm run dev</code> locally,
-      it writes the file straight into <code>/posts</code> and takes you back home to see it. Without a local
-      dev server (e.g. after <code>npm run build</code> / on GitHub Pages) it downloads the <code>.md</code>
-      instead — drop that file into <code>/posts</code> and push to GitHub to publish. Either way, push your
-      changes to GitHub afterwards to publish. Images upload the same way when a dev server is available; on a
-      static host they fall back to embedded data URLs automatically.
+      <strong>Save Post</strong> requires <code>npm run dev</code> running locally — it writes the file straight
+      into <code>/posts</code> and takes you back home to see it. If it can't reach the local server it shows an
+      error instead of guessing; use <strong>Download .md</strong> to get the file yourself and drop it into
+      <code>/posts</code> manually. Either way, push your changes to GitHub afterwards to publish. Images upload
+      the same way when a dev server is available; on a static host they fall back to embedded data URLs
+      automatically.
     </p>
   </section>
 
@@ -350,13 +352,14 @@ import { ArrowLeft } from '@lucide/astro';
         .catch(() => {});
     }
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const f = new FormData(e.target);
-      const title = (f.get('title') || '').toString().trim();
-      if (!title) return;
-      const tags = (f.get('tags') || '').toString().split(',').map((t) => t.trim()).filter(Boolean);
-      const date = (f.get('date') || '').toString().trim() || new Date().toISOString().slice(0, 10);
+    // Build the frontmatter + markdown string from the current form/editor
+    // state. Shared by the Save (local write) and Download (.md file) actions
+    // so they always produce identical output. Returns null if title is empty.
+    function buildMarkdown() {
+      const title = form.title.value.trim();
+      if (!title) return null;
+      const tags = form.tags.value.split(',').map((t) => t.trim()).filter(Boolean);
+      const date = form.date.value.trim() || new Date().toISOString().slice(0, 10);
 
       const html = editor.getHTML();
       const parsed = new DOMParser().parseFromString(html, 'text/html');
@@ -381,7 +384,7 @@ import { ArrowLeft } from '@lucide/astro';
       td.use(gfm);
       const markdown = td.turndown(parsed.body.innerHTML);
 
-      const fm = '---\n' +
+      const content = '---\n' +
         'title: "' + title.replace(/"/g, '\\"') + '"\n' +
         'date: ' + date + '\n' +
         'tags: [' + tags.map((t) => '"' + t.replace(/"/g, '\\"') + '"').join(', ') + ']\n' +
@@ -389,30 +392,11 @@ import { ArrowLeft } from '@lucide/astro';
         '---\n\n' + markdown + '\n';
 
       const slug = editingSlug || slugify(title);
+      return { slug, content };
+    }
 
-      // Local dev server (astro dev) writes the file straight into /posts
-      // and takes you to the home page. No server there (astro preview,
-      // GitHub Pages) — fall back to downloading the .md for manual placement.
-      submitBtn.disabled = true;
-      const originalLabel = submitBtn.textContent;
-      submitBtn.textContent = 'Saving…';
-      try {
-        const res = await fetch('/api/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug, content: fm }),
-        });
-        if (!res.ok) throw new Error('save failed');
-        location.href = '/';
-        return;
-      } catch {
-        // fall through to download
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalLabel;
-      }
-
-      const blob = new Blob([fm], { type: 'text/markdown' });
+    function downloadMarkdown({ slug, content }) {
+      const blob = new Blob([content], { type: 'text/markdown' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -421,6 +405,47 @@ import { ArrowLeft } from '@lucide/astro';
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+    }
+
+    const saveError = document.getElementById('save-error');
+
+    // Save Post: writes to /posts via the local dev-only endpoint (see
+    // astro.config.mjs) and redirects home. On failure this shows an error
+    // instead of silently downloading — use the separate Download .md button
+    // for that.
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      saveError.classList.add('hidden');
+      const built = buildMarkdown();
+      if (!built) { form.title.focus(); return; }
+
+      submitBtn.disabled = true;
+      const originalLabel = submitBtn.textContent;
+      submitBtn.textContent = 'Saving…';
+      try {
+        const res = await fetch('/api/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(built),
+        });
+        if (!res.ok) throw new Error('Save endpoint returned ' + res.status);
+        location.href = '/';
+        return;
+      } catch {
+        saveError.textContent =
+          'Could not save to /posts — make sure "npm run dev" is running in a terminal (restart it if you just pulled these changes). ' +
+          'Use "Download .md" to save the file yourself instead.';
+        saveError.classList.remove('hidden');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalLabel;
+      }
+    });
+
+    document.getElementById('download-btn').addEventListener('click', () => {
+      const built = buildMarkdown();
+      if (!built) { form.title.focus(); return; }
+      downloadMarkdown(built);
     });
   </script>
 </BaseLayout>
