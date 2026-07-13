@@ -23,17 +23,47 @@ function commitMessageFor(content, slug, isNew) {
   return (isNew ? 'Add post: ' : 'Update post: ') + title;
 }
 
-// Best-effort git add/commit/push for one file. Returns { committed, pushed }
-// on success ({ committed: false } if there was nothing to commit — e.g.
-// re-saving unchanged content). Throws on any git failure (no git repo, no
-// configured identity, rejected push, ...) so the caller can report it
-// without pretending the publish step succeeded.
+// Run a git command, returning trimmed stdout. On failure, throw an Error
+// whose message is git's actual stderr (execFile's default message is just
+// "Command failed" and hides the real reason), so the editor can show why.
+async function git(cwd, args) {
+  try {
+    const { stdout } = await execFileAsync('git', args, { cwd, maxBuffer: 10 * 1024 * 1024 });
+    return stdout.trim();
+  } catch (err) {
+    const detail = (err && (err.stderr || err.stdout || err.message) || '').toString().trim();
+    throw new Error(detail || ('git ' + args[0] + ' failed'));
+  }
+}
+
+// git add/commit/push for one file. Returns { committed, pushed }
+// ({ committed: false } when re-saving unchanged content — nothing to do).
+// Throws with git's real stderr on any failure so the caller can report it
+// instead of pretending publish succeeded.
+//
+// Push is resilient to the common "remote moved ahead" (non-fast-forward)
+// rejection: on the first push failure it fetches + rebases the current
+// branch onto its upstream and retries once. That covers the usual case
+// where the local branch fell behind origin/main between saves.
 async function gitPublish(cwd, relPath, message) {
-  await execFileAsync('git', ['add', relPath], { cwd });
-  const { stdout } = await execFileAsync('git', ['status', '--porcelain', '--', relPath], { cwd });
-  if (!stdout.trim()) return { committed: false, pushed: false };
-  await execFileAsync('git', ['commit', '-m', message], { cwd });
-  await execFileAsync('git', ['push'], { cwd });
+  await git(cwd, ['add', relPath]);
+  const status = await git(cwd, ['status', '--porcelain', '--', relPath]);
+  if (!status) return { committed: false, pushed: false };
+  await git(cwd, ['commit', '-m', message]);
+
+  try {
+    await git(cwd, ['push']);
+  } catch (pushErr) {
+    // Try to recover from a non-fast-forward rejection, then push again.
+    // If the rebase or the second push fails, surface that error.
+    const branch = await git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    try {
+      await git(cwd, ['pull', '--rebase', 'origin', branch]);
+    } catch {
+      throw pushErr; // rebase couldn't help (conflicts, no upstream, auth) — report original
+    }
+    await git(cwd, ['push']);
+  }
   return { committed: true, pushed: true };
 }
 
