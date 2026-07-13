@@ -27,12 +27,16 @@ import { ArrowLeft } from '@lucide/astro';
       </div>
       <div>
         <label class="mb-1.5 block text-caption-bold text-pin-olive">Content</label>
-        <p class="mb-2 text-caption text-pin-silver">Write freely, like Notion — headings, lists and quotes via Markdown shortcuts (#, -, &gt;), images by paste or drag &amp; drop. The first image becomes the card thumbnail.</p>
+        <p class="mb-2 text-caption text-pin-silver">Write freely, like Notion — headings, lists and quotes via Markdown shortcuts (#, -, &gt;), images by paste or drag &amp; drop. The first image becomes the card thumbnail. Drop a <code>.md</code> file anywhere on this page to import it.</p>
         <div id="editor"
           class="prose min-h-[420px] w-full max-w-none rounded-pin border border-pin-silver bg-white px-6 py-5 text-pin-plum outline-none focus-within:ring-2 focus-within:ring-pin-focus prose-headings:text-pin-plum prose-img:rounded-pin-sm [&_.ProseMirror]:min-h-[380px] [&_.ProseMirror]:outline-none"></div>
       </div>
       <div class="flex gap-2.5">
         <button id="submit-btn" type="submit" class="rounded-pin bg-pin-red px-5 py-2.5 text-caption-bold text-black hover:text-white">Save — download .md</button>
+        <label class="cursor-pointer rounded-pin bg-pin-sand px-5 py-2.5 text-caption-bold text-pin-plum hover:text-pin-red">
+          Import .md
+          <input id="md-file-input" type="file" accept=".md,text/markdown" class="hidden" />
+        </label>
         <a href="/" class="rounded-pin bg-pin-sand px-5 py-2.5 text-caption-bold text-pin-plum hover:text-pin-red">Cancel</a>
       </div>
     </form>
@@ -69,8 +73,15 @@ import { ArrowLeft } from '@lucide/astro';
     import { Editor } from 'https://esm.sh/@tiptap/core@2.11.5';
     import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2.11.5';
     import Image from 'https://esm.sh/@tiptap/extension-image@2.11.5';
+    import Link from 'https://esm.sh/@tiptap/extension-link@2.11.5';
+    import Table from 'https://esm.sh/@tiptap/extension-table@2.11.5';
+    import TableRow from 'https://esm.sh/@tiptap/extension-table-row@2.11.5';
+    import TableHeader from 'https://esm.sh/@tiptap/extension-table-header@2.11.5';
+    import TableCell from 'https://esm.sh/@tiptap/extension-table-cell@2.11.5';
     import Placeholder from 'https://esm.sh/@tiptap/extension-placeholder@2.11.5';
     import TurndownService from 'https://esm.sh/turndown@7.2.0';
+    import { gfm } from 'https://esm.sh/turndown-plugin-gfm@1.0.2';
+    import { marked } from 'https://esm.sh/marked@12.0.2';
 
     // Track upload-in-flight images by a temporary id so we can find and
     // update the right ProseMirror node once the upload settles.
@@ -88,6 +99,11 @@ import { ArrowLeft } from '@lucide/astro';
       extensions: [
         StarterKit,
         ImageWithUploadId,
+        Link.configure({ openOnClick: false }),
+        Table.configure({ resizable: false }),
+        TableRow,
+        TableHeader,
+        TableCell,
         Placeholder.configure({ placeholder: 'Type here — # for heading, - for list, > for quote. Paste or drop images.' }),
       ],
     });
@@ -184,6 +200,12 @@ import { ArrowLeft } from '@lucide/astro';
       const files = e.dataTransfer && e.dataTransfer.files;
       if (!files || files.length === 0) return;
       e.preventDefault();
+      e.stopPropagation();
+      const mdFile = Array.from(files).find(isMarkdownFile);
+      if (mdFile) {
+        importMarkdownFile(mdFile);
+        return;
+      }
       for (const f of files) {
         if (f.type.indexOf('image') === 0) insertImageFile(f);
       }
@@ -235,33 +257,78 @@ import { ArrowLeft } from '@lucide/astro';
     const submitBtn = document.getElementById('submit-btn');
     let editingSlug = null;
 
+    // Full CommonMark + GFM parsing (lists, blockquotes, links, tables, ...)
+    // via marked, instead of a hand-rolled subset.
     function markdownToHtml(body) {
-      const lines = body.split('\n');
-      let html = '';
-      let inCode = false, codeLang = '', codeLines = [], para = [];
-      const inlineMd = (s) => s
-        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">')
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        .replace(/`(.+?)`/g, '<code>$1</code>');
-      const flushPara = () => { if (para.length) { html += '<p>' + inlineMd(para.join(' ')) + '</p>'; para = []; } };
-      for (const line of lines) {
-        const fence = line.match(/^```(\w*)/);
-        if (fence) {
-          if (!inCode) { flushPara(); inCode = true; codeLang = fence[1] || ''; codeLines = []; }
-          else { html += '<pre><code>' + codeLines.join('\n').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</code></pre>'; inCode = false; }
-          continue;
-        }
-        if (inCode) { codeLines.push(line); continue; }
-        const h = line.match(/^(#{1,3})\s+(.*)/);
-        if (h) { flushPara(); html += '<h' + h[1].length + '>' + inlineMd(h[2]) + '</h' + h[1].length + '>'; continue; }
-        if (line.trim() === '') { flushPara(); continue; }
-        para.push(line);
-      }
-      if (inCode) html += '<pre><code>' + codeLines.join('\n') + '</code></pre>';
-      flushPara();
-      return html || '<p></p>';
+      return body && body.trim() ? marked.parse(body) : '<p></p>';
     }
+
+    function isMarkdownFile(file) {
+      return file && (file.name.toLowerCase().endsWith('.md') || file.type === 'text/markdown');
+    }
+
+    // ---- Parse "---\nkey: value\n---" frontmatter, tolerating both inline
+    // arrays (tags: ["a", "b"]) and YAML block-list arrays. ----
+    function parseFrontmatter(text) {
+      const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+      if (!m) return { meta: {}, body: text };
+      const [, yaml, rest] = m;
+      const meta = {};
+      const lines = yaml.split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        const kv = lines[i].match(/^(\w+):\s*(.*)$/);
+        if (!kv) continue;
+        const key = kv[1];
+        const val = kv[2].trim();
+        if (val === '' && lines[i + 1] && /^\s*-\s+/.test(lines[i + 1])) {
+          const items = [];
+          while (lines[i + 1] && /^\s*-\s+/.test(lines[i + 1])) {
+            i++;
+            items.push(lines[i].replace(/^\s*-\s+/, '').trim().replace(/^["']|["']$/g, ''));
+          }
+          meta[key] = items;
+        } else if (/^\[.*\]$/.test(val)) {
+          meta[key] = val.slice(1, -1).split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+        } else {
+          meta[key] = val.replace(/^["']|["']$/g, '');
+        }
+      }
+      return { meta, body: rest.replace(/^\n+/, '') };
+    }
+
+    async function importMarkdownFile(file) {
+      const text = await file.text();
+      const { meta, body } = parseFrontmatter(text);
+      let title = meta.title;
+      let content = body;
+      if (!title) {
+        const h1 = content.match(/^#\s+(.+)$/m);
+        if (h1) { title = h1[1].trim(); content = content.replace(h1[0], '').trim(); }
+      }
+      if (title) form.title.value = title;
+      if (meta.tags) form.tags.value = (Array.isArray(meta.tags) ? meta.tags : [meta.tags]).join(', ');
+      if (meta.date) form.date.value = meta.date;
+      editor.commands.setContent(markdownToHtml(content));
+    }
+
+    const mdFileInput = document.getElementById('md-file-input');
+    mdFileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) importMarkdownFile(file);
+      e.target.value = '';
+    });
+
+    // Drop a .md file anywhere on the page (outside the editor) to import it.
+    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener('drop', (e) => {
+      if (editorEl.contains(e.target)) return;
+      const files = e.dataTransfer && e.dataTransfer.files;
+      const file = files && files[0];
+      if (file && isMarkdownFile(file)) {
+        e.preventDefault();
+        importMarkdownFile(file);
+      }
+    });
 
     if (editSlug) {
       fetch('/posts/' + encodeURIComponent(editSlug) + '.json')
@@ -290,11 +357,27 @@ import { ArrowLeft } from '@lucide/astro';
       const date = (f.get('date') || '').toString().trim() || new Date().toISOString().slice(0, 10);
 
       const html = editor.getHTML();
-      const firstImg = new DOMParser().parseFromString(html, 'text/html').querySelector('img');
+      const parsed = new DOMParser().parseFromString(html, 'text/html');
+      const firstImg = parsed.querySelector('img');
       const thumbnail = firstImg ? firstImg.getAttribute('src') : '';
 
+      // Tiptap's table HTML (colspan/rowspan="1", <p> inside every cell) makes
+      // turndown-plugin-gfm bail out to a raw <table> passthrough — flatten it
+      // first so tables export as real markdown pipe tables.
+      parsed.querySelectorAll('td, th').forEach((cell) => {
+        cell.removeAttribute('colspan');
+        cell.removeAttribute('rowspan');
+        const paragraphs = cell.querySelectorAll('p');
+        if (paragraphs.length) cell.innerHTML = Array.from(paragraphs).map((p) => p.innerHTML).join('<br>');
+      });
+      parsed.querySelectorAll('table').forEach((t) => {
+        t.removeAttribute('style');
+        t.querySelectorAll('colgroup').forEach((cg) => cg.remove());
+      });
+
       const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
-      const markdown = td.turndown(html);
+      td.use(gfm);
+      const markdown = td.turndown(parsed.body.innerHTML);
 
       const fm = '---\n' +
         'title: "' + title.replace(/"/g, '\\"') + '"\n' +
