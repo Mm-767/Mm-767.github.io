@@ -6,7 +6,6 @@ export async function GET() {
     slug: post.id,
     title: post.data.title,
     description: post.data.description || '',
-    category: post.data.category,
     tags: post.data.tags,
     thumbnail: post.data.thumbnail || '',
     date: post.data.date.toISOString().slice(0, 10),

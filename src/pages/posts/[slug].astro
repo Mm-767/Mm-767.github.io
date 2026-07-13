@@ -20,7 +20,7 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
 
 const allPosts = await getAllPosts();
 const related = allPosts
-  .filter((p) => p.id !== post.id && (p.data.category === post.data.category || p.data.tags.some((t) => post.data.tags.includes(t))))
+  .filter((p) => p.id !== post.id && p.data.tags.some((t) => post.data.tags.includes(t)))
   .slice(0, 3);
 ---
 <BaseLayout title={post.data.title} description={post.data.description}>
@@ -47,8 +47,6 @@ const related = allPosts
         {post.data.title}
       </h1>
       <div class="flex flex-wrap items-center gap-3 text-caption text-pin-olive">
-        <span class="font-bold text-pin-plum">{post.data.category}</span>
-        <span>&middot;</span>
         <span>{formatDate(post.data.date)}</span>
       </div>
       {post.data.tags.length > 0 && (

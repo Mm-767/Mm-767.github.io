@@ -4,15 +4,6 @@ Astro + Tailwind CSS static blog. Write Markdown in `/posts`, push to GitHub, an
 
 **Why Astro (vs Next.js):** Markdown/MDX is built in, builds are dramatically faster, and pages ship zero JavaScript by default — ideal for a content blog maintained by non-developers.
 
-## IMPORTANT: rename 3 files after download
-
-This workspace cannot store square brackets in filenames. Rename these before running:
-
-- `src/pages/posts/-slug-.astro` -> `src/pages/posts/[slug].astro`
-- `src/pages/posts/-slug-.json.ts` -> `src/pages/posts/[slug].json.ts`
-- `src/pages/tags/-tag-.astro` -> `src/pages/tags/[tag].astro`
-- `src/pages/categories/-category-.astro` -> `src/pages/categories/[category].astro`
-
 ## Quick start
 
 ```bash
@@ -32,7 +23,6 @@ Two ways:
 ---
 title: "My post title"
 date: 2026-07-12
-category: "Travel"
 tags: ["japan", "coffee"]
 thumbnail: "/images/my-photo.jpg"   # or any URL; put files in /public/images
 description: "One-line summary shown in search."
@@ -58,8 +48,8 @@ public/                 <- images, favicon
 src/
   consts.ts             <- site title + description
   content.config.ts     <- frontmatter schema
-  lib/posts.ts          <- sorting, tags, categories, slugs
-  components/           <- Header, Footer, MasonryGrid, PinCard, TagBadge
+  lib/posts.ts          <- sorting, tags, slugs
+  components/           <- Header, MasonryGrid, PinCard, TagBadge
   layouts/BaseLayout.astro
   pages/
     index.astro         <- masonry home
@@ -67,10 +57,8 @@ src/
     posts/[slug].astro   <- post detail: hero, floating ToC, code copy buttons, related posts
     posts/[slug].json.ts <- raw post JSON, used to prefill the editor when editing
     tags/                <- tag index + per-tag pages
-    categories/          <- per-category pages
     search.astro         <- client-side search
     search.json.ts       <- static search index
-    api/upload.ts        <- image upload route (server-only, see file header)
 tailwind.config.ts      <- design tokens (colors, type, radius)
 .github/workflows/      <- auto-deploy to GitHub Pages
 ```
@@ -86,4 +74,4 @@ tailwind.config.ts      <- design tokens (colors, type, radius)
 
 ## Images: uploads on a static site
 
-This site builds fully static and deploys via GitHub Pages Actions — there's no server at runtime. `src/pages/api/upload.ts` is provided as reference code for anyone who deploys with a server adapter instead (see the caveats in that file's header). On the default static deploy, the editor at `/new` still behaves like Notion — paste/drop shows a skeleton, then the image is embedded inline automatically since there's nowhere to upload to. Broken image paths (e.g. from an imported `.md`) show a dashed placeholder you can drop a replacement image onto.
+This site builds fully static and deploys via GitHub Pages Actions — there's no server at runtime. The editor at `/new` behaves like Notion — paste/drop shows a skeleton, then the image is embedded inline automatically since there's nowhere to upload to. Broken image paths (e.g. from an imported `.md`) show a dashed placeholder you can drop a replacement image onto.

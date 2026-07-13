@@ -23,7 +23,6 @@ export async function GET({ params }: { params: { slug?: string } }) {
     JSON.stringify({
       slug: post.id,
       title: post.data.title,
-      category: post.data.category,
       tags: post.data.tags,
       date: post.data.date.toISOString().slice(0, 10),
       thumbnail: post.data.thumbnail || '',

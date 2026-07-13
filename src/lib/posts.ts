@@ -29,19 +29,6 @@ export interface Taxon {
   count: number;
 }
 
-export async function getAllCategories(): Promise<Taxon[]> {
-  const posts = await getAllPosts();
-  const map = new Map<string, Taxon>();
-  for (const post of posts) {
-    const name = post.data.category;
-    const slug = slugify(name);
-    const entry = map.get(slug) ?? { name, slug, count: 0 };
-    entry.count += 1;
-    map.set(slug, entry);
-  }
-  return Array.from(map.values()).sort((a, b) => b.count - a.count);
-}
-
 export async function getAllTags(): Promise<Taxon[]> {
   const posts = await getAllPosts();
   const map = new Map<string, Taxon>();

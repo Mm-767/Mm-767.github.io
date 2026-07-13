@@ -20,17 +20,10 @@ import { ArrowLeft } from '@lucide/astro';
         <input name="tags" placeholder="e.g. postgres, indexing"
           class="w-full rounded-pin border border-pin-silver bg-white px-[15px] py-[11px] text-body text-pin-plum outline-none focus:ring-2 focus:ring-pin-focus" />
       </div>
-      <div class="flex gap-4">
-        <div class="flex-1">
-          <label class="mb-1.5 block text-caption-bold text-pin-olive">Category</label>
-          <input name="category" placeholder="General"
-            class="w-full rounded-pin border border-pin-silver bg-white px-[15px] py-[11px] text-body text-pin-plum outline-none focus:ring-2 focus:ring-pin-focus" />
-        </div>
-        <div class="flex-1">
-          <label class="mb-1.5 block text-caption-bold text-pin-olive">Date</label>
-          <input name="date" type="date"
-            class="w-full rounded-pin border border-pin-silver bg-white px-[15px] py-[11px] text-body text-pin-plum outline-none focus:ring-2 focus:ring-pin-focus" />
-        </div>
+      <div>
+        <label class="mb-1.5 block text-caption-bold text-pin-olive">Date</label>
+        <input name="date" type="date"
+          class="w-full rounded-pin border border-pin-silver bg-white px-[15px] py-[11px] text-body text-pin-plum outline-none focus:ring-2 focus:ring-pin-focus" />
       </div>
       <div>
         <label class="mb-1.5 block text-caption-bold text-pin-olive">Content</label>
@@ -282,7 +275,6 @@ import { ArrowLeft } from '@lucide/astro';
             'Downloads an updated <code>' + data.slug + '.md</code> — replace the existing file of the same name in <code>/posts</code> and push.';
           form.title.value = data.title || '';
           form.tags.value = (data.tags || []).join(', ');
-          form.category.value = data.category || '';
           form.date.value = data.date || '';
           editor.commands.setContent(markdownToHtml(data.body || ''));
         })
@@ -295,7 +287,6 @@ import { ArrowLeft } from '@lucide/astro';
       const title = (f.get('title') || '').toString().trim();
       if (!title) return;
       const tags = (f.get('tags') || '').toString().split(',').map((t) => t.trim()).filter(Boolean);
-      const category = (f.get('category') || '').toString().trim() || 'General';
       const date = (f.get('date') || '').toString().trim() || new Date().toISOString().slice(0, 10);
 
       const html = editor.getHTML();
@@ -308,7 +299,6 @@ import { ArrowLeft } from '@lucide/astro';
       const fm = '---\n' +
         'title: "' + title.replace(/"/g, '\\"') + '"\n' +
         'date: ' + date + '\n' +
-        'category: "' + category.replace(/"/g, '\\"') + '"\n' +
         'tags: [' + tags.map((t) => '"' + t.replace(/"/g, '\\"') + '"').join(', ') + ']\n' +
         (thumbnail ? 'thumbnail: "' + thumbnail + '"\n' : '') +
         '---\n\n' + markdown + '\n';
