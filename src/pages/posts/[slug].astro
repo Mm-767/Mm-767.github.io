@@ -67,8 +67,8 @@ const related = allPosts
 
     <div class="relative">
       {toc.length > 0 && (
-        <aside class="absolute inset-y-0 left-0 hidden w-[168px] xl:block">
-          <nav class="post-toc sticky top-24 flex flex-col gap-2 border-l border-pin-warm-light pl-3">
+        <aside class="absolute inset-y-0 left-[-44px] hidden w-[168px] xl:block">
+          <nav class="post-toc sticky top-24 flex max-h-[calc(100vh-8rem)] flex-col gap-2 overflow-y-auto border-l border-pin-warm-light pl-3">
             <p class="mb-1 text-caption-bold text-pin-silver">On this page</p>
             {toc.map((h) => (
               <a
