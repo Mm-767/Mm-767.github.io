@@ -2,6 +2,32 @@ import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import { visit } from 'unist-util-visit';
+
+// Posts pasted from LLM output arrive with markdown-escaped LaTeX inside the
+// $/$$ delimiters (\\prod, x\_i, \\left\[ ...), which KaTeX can't parse.
+// Normalize math node values back to real LaTeX before rehype-katex runs.
+function remarkFixEscapedMath() {
+  const fix = (value) => value
+    .replace(/\\\\(?=[a-zA-Z{}|,;!])/g, '\\') // \\command -> \command
+    .replace(/\\_/g, '_')                     // \_ -> _
+    .replace(/\\\[/g, '[')                    // \[ -> [
+    .replace(/\\\]/g, ']')                    // \] -> ]
+    .replace(/\\left\{/g, '\\left\\{')        // restore brace lost to escaping
+    .replace(/\\right\}/g, '\\right\\}')
+    .replace(/;\\middle\|;/g, '\\;\\middle|\\;');
+  return (tree) => {
+    visit(tree, (node) => {
+      if (node.type !== 'math' && node.type !== 'inlineMath') return;
+      node.value = fix(node.value);
+      // remark-math precomputes the hast text in node.data.hChildren at parse
+      // time; rehype reads that copy, so it must be fixed too.
+      for (const child of node.data?.hChildren ?? []) {
+        if (child.type === 'text') child.value = fix(child.value);
+      }
+    });
+  };
+}
 import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
@@ -160,7 +186,7 @@ function localSaveApi() {
 export default defineConfig({
   integrations: [tailwind(), localSaveApi()],
   markdown: {
-    remarkPlugins: [remarkMath],
+    remarkPlugins: [remarkMath, remarkFixEscapedMath],
     rehypePlugins: [rehypeKatex],
   },
 });

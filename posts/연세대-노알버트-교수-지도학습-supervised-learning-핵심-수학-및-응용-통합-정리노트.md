@@ -86,7 +86,7 @@ tags: ["lg_aimers"]
     
     *   미지수의 수: 2개 ($a, b$)
         
-    *   방정식의 수: 2개 ($\\frac{\\partial \\mathcal{L}}{\\partial a} = 0$, $\\frac{\\partial \\mathcal{L}}{\\partial b} = 0$) 이 그레디언트 벡터 $\\nabla \\mathcal{L}(a, b) = \\mathbf{0}$를 충족하는 2원 연립 1차 방정식을 풀게 되면, 무한한 지그재그의 학습 루프를 겪을 필요 없이 컴퓨터가 대수 행렬 계산을 통해 단 한 번에 오차 극소점의 진정한 최적 계수 $a^_, b^_$를 정확히 규명해 낼 수 있게 됩니다 \[16\].
+    *   방정식의 수: 2개 ($\\frac{\\partial \\mathcal{L}}{\\partial a} = 0$, $\\frac{\\partial \\mathcal{L}}{\\partial b} = 0$) 이 그레디언트 벡터 $\\nabla \\mathcal{L}(a, b) = \\mathbf{0}$를 충족하는 2원 연립 1차 방정식을 풀게 되면, 무한한 지그재그의 학습 루프를 겪을 필요 없이 컴퓨터가 대수 행렬 계산을 통해 단 한 번에 오차 극소점의 진정한 최적 계수 $a^*, b^*$를 정확히 규명해 낼 수 있게 됩니다 \[16\].
         
 
 * * *
