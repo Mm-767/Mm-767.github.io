@@ -255,21 +255,7 @@ Claude Code는 macOS에서 OAuth 토큰을 키체인 항목 `Claude Code-credent
 
 * * *
 
-## 9\. Claude Code 시작 프롬프트 (복붙용)
-
-```
-이 저장소의 TokenCat_기획안.md를 읽고 구현해줘.
-순서: M0부터. 먼저 ~/.claude/projects 에서 JSONL 샘플 3개를 읽어
-실제 스키마를 docs/jsonl-schema.md로 정리하고, 기획안 §2와 다른 점을 보고해.
-그다음 §4 구조로 Xcode(SPM) 프로젝트를 만들고 M1까지 진행해.
-각 마일스톤 완료 시 §7 수용 기준을 스스로 체크해서 결과를 보여줘.
-스프라이트는 우선 임시 단색 픽셀 고양이 8프레임을 코드로 생성해 사용하고,
-에셋 교체가 쉽게 Assets 폴더 경로만 바꾸면 되게 해줘.
-```
-
-* * *
-
-## 10\. 참고 자료
+## 9\. 참고 자료
 
 *   OAuth usage 엔드포인트 논의(Claude-Code-Usage-Monitor #202): [https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor/issues/202](https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor/issues/202)
     
