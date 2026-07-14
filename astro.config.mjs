@@ -1,5 +1,7 @@
 import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
@@ -157,4 +159,8 @@ function localSaveApi() {
 // site: 'https://YOUR_USERNAME.github.io', base: '/YOUR_REPO_NAME'
 export default defineConfig({
   integrations: [tailwind(), localSaveApi()],
+  markdown: {
+    remarkPlugins: [remarkMath],
+    rehypePlugins: [rehypeKatex],
+  },
 });

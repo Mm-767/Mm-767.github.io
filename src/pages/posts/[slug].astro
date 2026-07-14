@@ -6,6 +6,7 @@ import TagBadge from '../../components/TagBadge.astro';
 import { getAllPosts, formatDate } from '../../lib/posts';
 import { render } from 'astro:content';
 import { ArrowLeft, Pencil } from '@lucide/astro';
+import 'katex/dist/katex.min.css';
 
 export async function getStaticPaths() {
   const posts = await getAllPosts();
@@ -143,6 +144,15 @@ const related = allPosts
     }
     .post-copy-btn:hover { opacity: 1; background: #33332e; }
     .post-toc a[data-active="true"] { color: #e60023; font-weight: 700; }
+    .mermaid-diagram {
+      display: flex;
+      justify-content: center;
+      margin: 1.5rem 0;
+      overflow-x: auto;
+    }
+    .mermaid-diagram svg { max-width: 100%; height: auto; }
+    /* KaTeX: let long display equations scroll instead of overflowing */
+    .post-article .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
   </style>
 
   <script>
@@ -150,7 +160,7 @@ const related = allPosts
     const COPY_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>';
     const CHECK_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
-    document.querySelectorAll('.post-article pre').forEach((pre) => {
+    document.querySelectorAll('.post-article pre:not([data-language="mermaid"])').forEach((pre) => {
       const btn = document.createElement('button');
       btn.className = 'post-copy-btn';
       btn.type = 'button';
@@ -183,6 +193,28 @@ const related = allPosts
         { rootMargin: '-20% 0px -70% 0px' }
       );
       targets.forEach((t) => observer.observe(t));
+    }
+  </script>
+
+  <script>
+    // Render ```mermaid code blocks as diagrams (client-side, static-host friendly).
+    const mermaidBlocks = document.querySelectorAll('.post-article pre[data-language="mermaid"]');
+    if (mermaidBlocks.length) {
+      const { default: mermaid } = await import('mermaid');
+      mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
+      let i = 0;
+      for (const pre of mermaidBlocks) {
+        const code = pre.querySelector('code')?.textContent ?? '';
+        try {
+          const { svg } = await mermaid.render('mermaid-diagram-' + i++, code);
+          const container = document.createElement('div');
+          container.className = 'mermaid-diagram';
+          container.innerHTML = svg;
+          pre.replaceWith(container);
+        } catch {
+          // Leave the code block as-is if the diagram fails to parse.
+        }
+      }
     }
   </script>
 </BaseLayout>
