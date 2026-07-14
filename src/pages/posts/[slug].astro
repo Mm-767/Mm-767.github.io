@@ -64,10 +64,10 @@ const related = allPosts
       </div>
     </header>
 
-    <div class="grid grid-cols-1 gap-10 lg:grid-cols-[220px_1fr]">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-[200px_1fr]">
       {toc.length > 0 && (
         <aside class="hidden lg:block">
-          <nav class="post-toc sticky top-24 flex flex-col gap-2 border-l border-pin-warm-light pl-4">
+          <nav class="post-toc sticky top-24 flex flex-col gap-2 border-l border-pin-warm-light pl-3">
             <p class="mb-1 text-caption-bold text-pin-silver">On this page</p>
             {toc.map((h) => (
               <a
