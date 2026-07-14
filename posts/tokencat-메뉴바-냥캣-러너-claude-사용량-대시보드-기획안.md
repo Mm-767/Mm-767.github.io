@@ -38,10 +38,13 @@ tags: ["개인프로젝트", "TokenCat"]
 | 검증된 선례 | ccusage(CLI)가 동일 JSONL을 파싱해 일별/세션/5시간 블록 리포트 제공. 파싱·중복제거·단가 로직은 ccusage 소스를 참조 구현 |
 | 5시간 블록 | 첫 활동 시각을 UTC 정시로 내림(floor)한 시점부터 5시간 창. ccusage와 동일 규칙 사용 |
 | 주간 사용량 | 계정 리셋 시각은 비공개 → 기본값: 최근 7일 롤링 합계. 설정에서 "주간 리셋 요일/시각" 수동 입력 시 그 기준으로 계산 |
-| 공식 한도 % | Anthropic은 플랜별 정확한 한도를 수치로 공개하지 않음(Claude Code `/usage`로만 확인 가능). → **추정 모드**: 플랜 프리셋(아래 §6) 대비 사용률 계산 + "추정치" 라벨 표기. 설정에서 `/usage` 실측값으로 한도 보정(캘리브레이션) 가능하게 함 |
+| **공식 사용량 % (게이지 1순위)** | **비문서화 OAuth usage 엔드포인트**: Claude Code가 로컬에 저장한 OAuth 토큰(`~/.claude/.credentials.json`의 `claudeAiOauth.accessToken`, macOS는 키체인일 수 있음)으로 Anthropic usage 엔드포인트를 조회하면 `/usage`와 동일한 **세션·주간 사용률(%)과 리셋 시각**을 응답받음. 이 값은 **웹/데스크톱 앱 사용량까지 합산된 계정 단위 공식 데이터**라서 플랜 선택·캘리브레이션 없이 게이지가 정확해짐. 운용 규칙: 폴링 180초 간격, 올바른 User-Agent 필수(아니면 429 지속), 액세스 토큰 약 60분 만료 → `refreshToken` 갱신 로직 필요. 선례: jens-duttke/usage-monitor-for-claude(Windows 트레이), Claude-Code-Usage-Monitor issue #202 |
+| 추정 모드 (폴백) | 위 엔드포인트가 실패·변경된 경우: 플랜 프리셋(§5) 대비 JSONL 집계로 사용률 추정 + "(추정)" 라벨 + 설정에서 `/usage` 실측값 캘리브레이션 |
 | 주의 | 2026-06-15부터 프로그래매틱 사용(Agent SDK, `claude -p` 등)은 별도 월간 크레딧 풀로 분리됨 — v1은 인터랙티브 사용량만 다룬다고 명시 |
 
-**M0 스파이크(구현 첫날 필수)**: 실제 JSONL 3~4개를 열어 스키마 필드명 확인 → `docs/jsonl-schema.md`에 기록 후 파서 작성. 포맷이 다르면 이 문서보다 실물 우선.
+**역할 분담(하이브리드)**: 팝오버의 세션/주간 **게이지 % = OAuth 엔드포인트(공식, 웹 사용량 포함)**, 고양이 속도·오늘 토큰·스파크라인 = **로컬 JSONL(초 단위 실시간, Claude Code분)**. 두 소스를 명확히 분리해 표기한다.
+
+**M0 스파이크(구현 첫날 필수)**: ⑴ 실제 JSONL 3~4개를 열어 스키마 필드명 확인 → `docs/jsonl-schema.md`에 기록. ⑵ OAuth usage 엔드포인트를 실제 토큰으로 1회 호출해 응답 JSON 구조를 `docs/usage-endpoint.md`에 기록(위 선례 저장소 2곳의 구현을 먼저 읽을 것). 포맷이 다르면 이 문서보다 실물 우선.
 
 * * *
 
@@ -86,18 +89,18 @@ tags: ["개인프로젝트", "TokenCat"]
 **좌측 정보 카드 (위→아래, 각 섹션 사이 구분선)**
 
 ```
-🐱  세션 (5시간)  : 42.3%          ← 게이지 바, 남은 시간 "2시간 18분 후 리셋"
-     토큰: 1.24M / 추정 한도 2.9M(추정)
+🐱  세션 (5시간)  : 42.3% ✓공식     ← 게이지 바, "2시간 18분 후 리셋"(엔드포인트 값)
+     Claude Code 소모: 1.24M tokens (JSONL 집계)
 ────────────────────────────
-📅  주간 사용량   : 61.0%          ← 게이지 바, "일요일 09:00 리셋(사용자 설정)"
-     Opus 12% · Sonnet 88% (모델 비중)
+📅  주간 사용량   : 61.0% ✓공식     ← 게이지 바, 리셋 시각(엔드포인트 값)
+     Opus 12% · Sonnet 88% (모델 비중, JSONL 기준)
 ────────────────────────────
 🔥  현재 속도     : 8,420 tok/min  ← 최근 30분 스파크라인 미니 그래프
      상태: 달리기 🏃
 ────────────────────────────
 💰  오늘         : 3.1M tokens · $12.40 (API 단가 환산 추정)
 ────────────────────────────
-📦  플랜: Max 5x (추정 모드)       ← 클릭 시 설정으로 이동
+📦  데이터: 공식 연동 ✓ (폴백 시 "추정 모드")  ← 클릭 시 설정으로 이동
 ```
 
 **우측 버튼 열 (RunCat의 러너/스토어/설정 열 대응)**
@@ -117,6 +120,17 @@ tags: ["개인프로젝트", "TokenCat"]
 *   모든 추정값에는 "(추정)" 라벨 — 정직한 UI가 신뢰를 만든다.
     
 
+**갱신 전략 (체감 실시간화)**
+
+*   백그라운드: 공식 % 폴링은 180초 간격 유지(안전 간격, 429 방지).
+    
+*   **팝오버를 여는 순간 즉시 1회 재조회**(직전 조회가 30초 이내면 생략) → 사용자가 보는 시점엔 항상 최신값.
+    
+*   **보간 게이지**: 마지막 공식 % 위에, 그 이후 JSONL로 감지된 Claude Code 소모분을 추정 한도로 환산해 실시간으로 얹어 표시. 게이지 옆에 "공식 N분 전 · 보간 중" 캡션 표기. 웹에서 쓴 분량은 다음 폴링 때 따라잡음.
+    
+*   M0에서 usage 응답에 % 외 절대값(한도·잔여 토큰)이 포함되는지 확인 — 포함되면 보간 정확도를 그 값으로 높인다.
+    
+
 ### F4. 알림
 
 *   세션/주간 80%, 95% 도달 시 1회씩 macOS UserNotifications 발송. 예: "🐱 세션 한도 80% — 약 1시간 12분 분량 남음(현재 속도 기준)".
@@ -126,9 +140,9 @@ tags: ["개인프로젝트", "TokenCat"]
 
 ### F5. 설정 (UserDefaults)
 
-*   플랜 선택: Pro / Max 5x / Max 20x / Custom(한도 직접 입력).
+*   공식 사용량 연동 on/off (기본 on — off 또는 실패 시 아래 추정 모드로 폴백).
     
-*   한도 캘리브레이션: "Claude Code에서 `/usage`가 보여주는 세션 % 입력" → 내부 추정 한도를 역산 보정.
+*   (추정 모드용) 플랜 선택: Pro / Max 5x / Max 20x / Custom + `/usage` 실측값 캘리브레이션.
     
 *   주간 리셋 요일·시각 입력. / 민감도 3단. / 로그인 시 자동 시작(SMAppService). / 폴링 주기(기본 3초).
     
@@ -150,6 +164,9 @@ TokenCat/
 │   ├── UsageStore.swift        # 인메모리 집계 + 디스크 캐시(시작 시 풀스캔 1회, 이후 증분)
 │   ├── BlockCalculator.swift   # 5시간 블록(UTC floor) / 주간 롤링 or 사용자 리셋 기준
 │   ├── BurnRateMeter.swift     # 60초 창 tokens/min + EMA
+│   ├── OAuthUsageProvider.swift# 공식 % 폴링(180s): 토큰 로드(credentials.json/키체인)
+│   │                           #  + refreshToken 갱신 + User-Agent 준수, 실패 시 추정 모드 폴백
+│   │                           #  ⚠ 토큰은 읽기 전용, Anthropic 외 어디에도 전송 금지
 │   └── PricingTable.swift      # 모델별 단가(모델명 프리픽스 매칭, 단가표는 JSON 리소스)
 ├── UI/                 PopoverView.swift, GaugeBar.swift, Sparkline.swift, SettingsView.swift
 ├── Services/           Notifier.swift, LaunchAtLogin.swift
@@ -162,9 +179,9 @@ TokenCat/
 
 * * *
 
-## 5\. 플랜 프리셋 (추정 한도 초기값)
+## 5\. 플랜 프리셋 (폴백 전용 — 공식 연동 실패 시에만 사용)
 
-정확한 한도는 비공개이므로 아래는 **초기 추정값 상수**로만 넣고, `/usage` 캘리브레이션으로 덮어쓰는 구조로 구현한다. (2026-05-06 5시간 한도 2배 상향 반영해 M0에서 최신 커뮤니티 추정치로 갱신할 것)
+게이지의 기본 소스는 §2의 OAuth 엔드포인트(공식 %)다. 아래 프리셋은 엔드포인트가 실패·변경됐을 때의 추정 모드에서만 쓰는 **초기 추정값 상수**이며, `/usage` 캘리브레이션으로 덮어쓴다. (2026-05-06 5시간 한도 2배 상향 반영해 M0에서 최신 커뮤니티 추정치로 갱신할 것)
 
 ```json
 {
@@ -194,6 +211,10 @@ TokenCat/
     
 *   5분 무활동 시 고양이가 잠든다.
     
+*   공식 연동 상태에서 팝오버의 세션/주간 %가 Claude Code `/usage` 표시값과 일치한다.
+    
+*   공식 연동을 끄면(또는 실패 시) 추정 모드로 자동 전환되고 "(추정)" 라벨이 붙는다.
+    
 *   팝오버의 세션 토큰 합계가 `npx ccusage blocks`의 현재 블록과 오차 2% 이내.
     
 *   플랜 변경·캘리브레이션 즉시 게이지에 반영.
@@ -211,6 +232,7 @@ TokenCat/
 
 | 리스크 | 대응 |
 | --- | --- |
+| 비문서화 usage 엔드포인트 변경·차단 | 추정 모드 자동 폴백(앱이 죽지 않게), 폴링 180초·User-Agent 준수, 응답 스키마 관용 파싱. OAuth 토큰은 로컬 읽기 전용 — Anthropic 외 전송 절대 금지 |
 | Claude Code가 JSONL 포맷 변경 | 파서를 스키마-관용적으로(필드 누락 시 skip), 버전 감지 로그 |
 | 공식 한도와 추정치 괴리 | "(추정)" 라벨 + `/usage` 캘리브레이션 + README에 한계 명시 |
 | 냥캣 원작 저작권 | 스프라이트 전부 자체 제작(오마주 수준), 이름도 Nyan Cat 미사용 |
@@ -235,6 +257,10 @@ TokenCat/
 
 ## 10\. 참고 자료
 
+*   OAuth usage 엔드포인트 논의(Claude-Code-Usage-Monitor #202): [https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor/issues/202](https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor/issues/202)
+    
+*   공식 % 트레이 앱 선례(usage-monitor-for-claude): [https://github.com/jens-duttke/usage-monitor-for-claude](https://github.com/jens-duttke/usage-monitor-for-claude)
+    
 *   ccusage 5시간 블록 리포트: [https://ccusage.com/guide/blocks-reports](https://ccusage.com/guide/blocks-reports)
     
 *   실시간 모니터 선례(Claude-Code-Usage-Monitor): [https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor](https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor)
