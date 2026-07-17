@@ -8,9 +8,9 @@ tags: ["멋사"]
 
 * * *
 
-## 0\. 용어 먼저 — "카프카"가 아니라 카파시
+## 0\. 용어
 
-바이브 코딩(vibe coding)이라는 말을 만든 사람은 **Andrej Karpathy(안드레이 카파시)** 입니다. Franz Kafka(작가), Apache Kafka(메시지 큐)와 헷갈리기 쉬운데 전혀 다른 사람이에요. 테슬라 AI 총괄, OpenAI 창립 멤버 출신이고 "Software 1.0/2.0/3.0" 프레임으로 유명합니다.
+바이브 코딩(vibe coding)이라는 말을 만든 사람은 **Andrej Karpathy(안드레이 카파시)** 입니다. 테슬라 AI 총괄, OpenAI 창립 멤버 출신이고 "Software 1.0/2.0/3.0" 프레임으로 유명합니다.
 
 * * *
 
