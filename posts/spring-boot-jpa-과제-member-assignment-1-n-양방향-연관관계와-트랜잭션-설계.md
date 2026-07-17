@@ -1,7 +1,7 @@
 ---
 title: "Spring Boot / JPA 과제 — Member·Assignment 1:N 양방향 연관관계와 트랜잭션 설계"
 date: 2026-07-17
-tags: []
+tags: ["멋사"]
 ---
 
 > **과제 목표**: `Member`(회원)와 `Assignment`(과제) 간 1:N 양방향 연관관계를 설계하고, Service 계층 `@Transactional`로 데이터 안정성과 일관성을 확보한다.
