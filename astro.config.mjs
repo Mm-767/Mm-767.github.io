@@ -28,7 +28,7 @@ function remarkFixEscapedMath() {
     });
   };
 }
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -174,6 +174,52 @@ function localSaveApi() {
           } catch (err) {
             res.statusCode = 500;
             res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'Save failed' }));
+          }
+        });
+
+        // Dev-only /api/delete: removes posts/<slug>.md, commits the deletion
+        // (git add stages removals too) and pushes in the background — same
+        // dev-middleware-not-Astro-route reasoning as /api/save above. On the
+        // deployed site the post page deletes via the GitHub Contents API.
+        server.middlewares.use('/api/delete', async (req, res) => {
+          if (req.method !== 'POST') {
+            res.statusCode = 405;
+            res.end();
+            return;
+          }
+          try {
+            const chunks = [];
+            for await (const chunk of req) chunks.push(chunk);
+            const { slug: rawSlug } = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+            const slug = slugify(rawSlug);
+            const cwd = process.cwd();
+            const filePath = path.join(cwd, 'posts', `${slug}.md`);
+            if (!slug || !existsSync(filePath)) {
+              res.statusCode = 404;
+              res.end(JSON.stringify({ error: 'Post not found' }));
+              return;
+            }
+            const content = await readFile(filePath, 'utf8');
+            const m = content.match(/title:\s*"([^"]*)"/);
+            const message = 'Delete post: ' + (m ? m[1] : slug);
+            await unlink(filePath);
+
+            res.setHeader('Content-Type', 'application/json');
+            try {
+              const { committed } = await gitCommit(cwd, path.join('posts', `${slug}.md`), message);
+              res.end(JSON.stringify({ ok: true, slug, committed }));
+              if (committed) queuePush(cwd);
+            } catch (gitErr) {
+              res.end(JSON.stringify({
+                ok: true,
+                slug,
+                committed: false,
+                gitError: gitErr instanceof Error ? gitErr.message : String(gitErr),
+              }));
+            }
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'Delete failed' }));
           }
         });
       },

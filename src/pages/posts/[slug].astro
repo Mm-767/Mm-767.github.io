@@ -5,7 +5,7 @@ import PinCard from '../../components/PinCard.astro';
 import TagBadge from '../../components/TagBadge.astro';
 import { getAllPosts, formatDate } from '../../lib/posts';
 import { render } from 'astro:content';
-import { ArrowLeft, Pencil } from '@lucide/astro';
+import { ArrowLeft, Pencil, Trash2 } from '@lucide/astro';
 import 'katex/dist/katex.min.css';
 
 export async function getStaticPaths() {
@@ -62,6 +62,10 @@ const related = allPosts
         <a href={'/new?edit=' + post.id} class="inline-flex items-center gap-1.5 rounded-pin bg-pin-plum px-4 py-2 text-caption-bold text-white hover:bg-pin-dark">
           <Pencil size={14} /> Edit Post
         </a>
+        <button id="delete-post-btn" type="button" data-slug={post.id} data-title={post.data.title}
+          class="inline-flex items-center gap-1.5 rounded-pin bg-pin-sand px-4 py-2 text-caption-bold text-pin-red hover:bg-pin-red hover:text-white">
+          <Trash2 size={14} /> Delete
+        </button>
       </div>
     </header>
 
@@ -154,6 +158,75 @@ const related = allPosts
     /* KaTeX: let long display equations scroll instead of overflowing */
     .post-article .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
   </style>
+
+  <script>
+    // Delete Post — same two paths as saving in /new:
+    //  * localhost: the dev server's /api/delete removes the file, commits and
+    //    pushes in the background.
+    //  * live site: delete posts/<slug>.md via the GitHub Contents API using
+    //    the fine-grained PAT stored in localStorage by /new's ⚙️ settings.
+    const GH_OWNER = 'Mm-767';
+    const GH_REPO = 'Mm-767.github.io';
+    const GH_BRANCH = 'main';
+
+    const deleteBtn = document.getElementById('delete-post-btn');
+    deleteBtn?.addEventListener('click', async () => {
+      const { slug, title } = deleteBtn.dataset;
+      if (!confirm('"' + title + '" 포스트를 삭제할까요? 저장소에서도 삭제(커밋)됩니다.')) return;
+
+      const originalHtml = deleteBtn.innerHTML;
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = 'Deleting…';
+      const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      try {
+        if (isLocal) {
+          const res = await fetch('/api/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slug }),
+          });
+          if (!res.ok) throw new Error('Delete endpoint returned ' + res.status);
+          const data = await res.json();
+          if (data.gitError) {
+            alert('파일은 삭제됐지만 git 커밋에 실패했습니다: ' + data.gitError +
+              '\n직접 git add/commit/push로 반영해 주세요.');
+          }
+          location.href = '/';
+          return;
+        }
+
+        const token = localStorage.getItem('gh_pat');
+        if (!token) {
+          alert('삭제하려면 GitHub 토큰이 필요합니다 — /new 페이지의 ⚙️ GitHub 게시 설정에서 토큰을 저장한 뒤 다시 시도하세요.');
+          deleteBtn.disabled = false;
+          deleteBtn.innerHTML = originalHtml;
+          return;
+        }
+        const headers = {
+          Authorization: 'Bearer ' + token,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        };
+        const encPath = ['posts', slug + '.md'].map(encodeURIComponent).join('/');
+        const url = 'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + encPath;
+        const lookup = await fetch(url + '?ref=' + GH_BRANCH, { headers });
+        if (!lookup.ok) throw new Error('저장소에서 파일을 찾지 못했습니다 (HTTP ' + lookup.status + ').');
+        const { sha } = await lookup.json();
+        const del = await fetch(url, {
+          method: 'DELETE',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: 'Delete post: ' + title, sha, branch: GH_BRANCH }),
+        });
+        if (!del.ok) throw new Error('삭제 커밋에 실패했습니다 (HTTP ' + del.status + ').');
+        alert('🗑️ 삭제 완료! GitHub Pages 빌드 후(보통 1~3분) 사이트에서 사라집니다.');
+        location.href = '/';
+      } catch (err) {
+        alert(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = originalHtml;
+      }
+    });
+  </script>
 
   <script>
     // Copy-to-clipboard button on every rendered code block.
