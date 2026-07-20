@@ -1,5 +1,5 @@
 ---
-title: "Optimization and Decision-Focused Learning — 강의 요약"
+title: "Optimization and Decision-Focused Learning — 강의 요약 1,2,3 강"
 date: 2026-07-20
 tags: ["lg-aimers"]
 ---
