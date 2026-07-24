@@ -1,5 +1,5 @@
 ---
-import { Search } from '@lucide/astro';
+import { Search, Rss } from '@lucide/astro';
 import { SITE_TITLE } from '../consts';
 ---
 <header class="sticky top-0 z-20 border-b border-pin-warm-light bg-pin-sand/95 backdrop-blur">
@@ -10,6 +10,8 @@ import { SITE_TITLE } from '../consts';
     </a>
     <nav class="hidden items-center gap-4 text-caption-bold text-pin-plum sm:flex">
       <a href="/" class="hover:text-pin-red">Home</a>
+      <a href="/about" class="hover:text-pin-red">About</a>
+      <a href="/rss.xml" class="flex items-center hover:text-pin-red" aria-label="RSS feed"><Rss size={16} /></a>
     </nav>
     <form action="/search" method="get" class="ml-auto flex max-w-[420px] flex-1 items-center gap-2 rounded-pin border border-pin-silver bg-white px-[15px] py-[9px] focus-within:ring-2 focus-within:ring-pin-focus">
       <Search size={16} class="shrink-0 text-pin-olive" />

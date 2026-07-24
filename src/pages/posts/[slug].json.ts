@@ -27,6 +27,7 @@ export async function GET({ params }: { params: { slug?: string } }) {
       date: post.data.date.toISOString().slice(0, 10),
       thumbnail: post.data.thumbnail || '',
       description: post.data.description || '',
+      series: post.data.series || '',
       body: post.body || '',
     }),
     { headers: { 'Content-Type': 'application/json' } }
