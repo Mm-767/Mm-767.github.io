@@ -2,6 +2,7 @@
 title: "딥러닝 자연어처리 기초와 LLM 에이전트 — 강의 요약"
 date: 2026-07-20
 tags: ["lg-aimers"]
+series: "LG Aimers"
 ---
 
 > LG AI Research Special Lecture · 중앙대학교 AI학과 이환희 총 6강 (204쪽 슬라이드) · AI 기초 → NLP/RNN → Transformer → 사전학습/RLHF → LLM Agent → 하드웨어/GPU

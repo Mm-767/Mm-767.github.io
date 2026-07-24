@@ -2,6 +2,7 @@
 title: "Optimization and Decision-Focused Learning — 강의 요약 1,2,3 강"
 date: 2026-07-20
 tags: ["lg-aimers"]
+series: "LG Aimers"
 ---
 
 > 이용재 교수 (UNIST 산업공학과 / Financial Engineering Lab) 전체 구성: **Ch.1 볼록 최적화 입문 → Ch.2 최적화 문제 유형 → Ch.3 의사결정 중심 학습(DFL)**

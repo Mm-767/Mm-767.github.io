@@ -2,6 +2,7 @@
 title: "대규모 언어 모델(LLM) 디코딩 및 평가 기술 통합 요약 리포트"
 date: 2026-07-14
 tags: ["lg-aimers"]
+series: "LG Aimers"
 ---
 
 본 포스트는 연세대학교 및 LG AI Research의 \*\*『LLM Application & Evaluation』 강의자료 (Source 37)\*\*를 메인 분석 대상으로 삼고, 학술적 깊이를 더하기 위해 제공된 최신 연구 논문들(Contrastive Decoding, Multi-Model CD, Speculative Decoding, Confidence-Driven CD, REPLUG 등)의 수리적 모델링과 세부 메커니즘을 결합하여 작성된 전문 학술 요약입니다.

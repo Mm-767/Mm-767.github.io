@@ -2,6 +2,7 @@
 title: "시계열 분석 (Time-Series Analysis) — 강의 요약 4,5,6강"
 date: 2026-07-20
 tags: ["lg-aimers"]
+series: "LG Aimers"
 ---
 
 > 이용재 교수 (UNIST 산업공학과 / Financial Engineering Lab) 강의 4·5·6강 통합 정리 · 총 3개 섹션 + 사례연구
