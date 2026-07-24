@@ -21,6 +21,11 @@ import { ArrowLeft } from '@lucide/astro';
           class="w-full rounded-pin border border-pin-silver bg-white px-[15px] py-[11px] text-body text-pin-plum outline-none focus:ring-2 focus:ring-pin-focus" />
       </div>
       <div>
+        <label class="mb-1.5 block text-caption-bold text-pin-olive">Description (optional)</label>
+        <input name="description" placeholder="한 줄 요약 — 공유 미리보기(OG)와 RSS에 쓰입니다"
+          class="w-full rounded-pin border border-pin-silver bg-white px-[15px] py-[11px] text-body text-pin-plum outline-none focus:ring-2 focus:ring-pin-focus" />
+      </div>
+      <div>
         <label class="mb-1.5 block text-caption-bold text-pin-olive">Series (optional)</label>
         <input name="series" placeholder="e.g. 백엔드 스터디 로드맵"
           class="w-full rounded-pin border border-pin-silver bg-white px-[15px] py-[11px] text-body text-pin-plum outline-none focus:ring-2 focus:ring-pin-focus" />
@@ -341,6 +346,7 @@ import { ArrowLeft } from '@lucide/astro';
       }
       if (title) form.title.value = title;
       if (meta.tags) form.tags.value = (Array.isArray(meta.tags) ? meta.tags : [meta.tags]).join(', ');
+      if (meta.description) form.description.value = meta.description;
       if (meta.series) form.series.value = meta.series;
       if (meta.date) form.date.value = meta.date;
       editor.commands.setContent(markdownToHtml(content));
@@ -377,6 +383,7 @@ import { ArrowLeft } from '@lucide/astro';
             'Save changes를 누르면 <code>posts/' + data.slug + '.md</code>가 같은 파일명으로 저장·커밋됩니다.';
           form.title.value = data.title || '';
           form.tags.value = (data.tags || []).join(', ');
+          form.description.value = data.description || '';
           form.series.value = data.series || '';
           form.date.value = data.date || '';
           editor.commands.setContent(markdownToHtml(data.body || ''));
@@ -391,6 +398,7 @@ import { ArrowLeft } from '@lucide/astro';
       const title = form.title.value.trim();
       if (!title) return null;
       const tags = form.tags.value.split(',').map((t) => t.trim()).filter(Boolean);
+      const description = form.description.value.trim();
       const series = form.series.value.trim();
       const date = form.date.value.trim() || new Date().toISOString().slice(0, 10);
 
@@ -421,6 +429,7 @@ import { ArrowLeft } from '@lucide/astro';
         'title: "' + title.replace(/"/g, '\\"') + '"\n' +
         'date: ' + date + '\n' +
         'tags: [' + tags.map((t) => '"' + t.replace(/"/g, '\\"') + '"').join(', ') + ']\n' +
+        (description ? 'description: "' + description.replace(/"/g, '\\"') + '"\n' : '') +
         (series ? 'series: "' + series.replace(/"/g, '\\"') + '"\n' : '') +
         (thumbnail ? 'thumbnail: "' + thumbnail + '"\n' : '') +
         '---\n\n' + markdown + '\n';
