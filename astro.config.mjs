@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
+import sitemap from '@astrojs/sitemap';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { visit } from 'unist-util-visit';
@@ -227,10 +228,12 @@ function localSaveApi() {
   };
 }
 
-// For GitHub Pages project sites, set site + base, e.g.:
-// site: 'https://YOUR_USERNAME.github.io', base: '/YOUR_REPO_NAME'
+// Deployed as a GitHub Pages *user* site (repo Mm-767/Mm-767.github.io), so it
+// serves from the domain root — `site` is the origin and no `base` is needed.
+// `site` also feeds absolute URLs into RSS, the sitemap, and OG meta tags.
 export default defineConfig({
-  integrations: [tailwind(), localSaveApi()],
+  site: 'https://Mm-767.github.io',
+  integrations: [tailwind(), sitemap(), localSaveApi()],
   markdown: {
     remarkPlugins: [remarkMath, remarkFixEscapedMath],
     rehypePlugins: [rehypeKatex],
