@@ -3,7 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import MasonryGrid from '../../components/MasonryGrid.astro';
 import PinCard from '../../components/PinCard.astro';
 import TagBadge from '../../components/TagBadge.astro';
-import { getAllPosts, formatDate } from '../../lib/posts';
+import { getAllPosts, formatDate, readingTime } from '../../lib/posts';
 import { render } from 'astro:content';
 import { ArrowLeft, Pencil, Trash2 } from '@lucide/astro';
 import 'katex/dist/katex.min.css';
@@ -19,12 +19,28 @@ const { Content, headings } = await render(post);
 // ToC: only h2/h3 so the sidebar stays scannable on long dev posts.
 const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
 
+const minutes = readingTime(post.body ?? '');
+
 const allPosts = await getAllPosts();
 const related = allPosts
   .filter((p) => p.id !== post.id && p.data.tags.some((t) => post.data.tags.includes(t)))
   .slice(0, 3);
+
+// Chronological prev/next across all posts (allPosts is newest-first).
+const idx = allPosts.findIndex((p) => p.id === post.id);
+const newerPost = idx > 0 ? allPosts[idx - 1] : null;              // more recent
+const olderPost = idx < allPosts.length - 1 ? allPosts[idx + 1] : null; // earlier
+
+// Series: sibling posts sharing this post's `series`, in reading order (oldest
+// first), with the current post's position highlighted.
+const seriesPosts = post.data.series
+  ? allPosts
+      .filter((p) => p.data.series === post.data.series)
+      .sort((a, b) => a.data.date.valueOf() - b.data.date.valueOf())
+  : [];
+const seriesIndex = seriesPosts.findIndex((p) => p.id === post.id);
 ---
-<BaseLayout title={post.data.title} description={post.data.description}>
+<BaseLayout title={post.data.title} description={post.data.description} image={post.data.thumbnail} type="article">
   <article class="post-article mx-auto max-w-[1080px] px-4 pb-20 pt-10">
     <a href="/" class="mb-6 inline-flex items-center gap-1.5 text-caption-bold text-pin-olive hover:text-pin-red">
       <ArrowLeft size={16} /> Back to Grid
@@ -47,8 +63,10 @@ const related = allPosts
       <h1 class="text-[36px] font-semibold leading-[1.15] tracking-[-0.8px] text-pin-plum sm:text-[44px]">
         {post.data.title}
       </h1>
-      <div class="flex flex-wrap items-center gap-3 text-caption text-pin-olive">
+      <div class="flex flex-wrap items-center gap-2 text-caption text-pin-olive">
         <span>{formatDate(post.data.date)}</span>
+        <span class="text-pin-silver">·</span>
+        <span>{minutes}분 읽기</span>
       </div>
       {post.data.tags.length > 0 && (
         <div class="flex flex-wrap gap-1.5">
@@ -68,6 +86,26 @@ const related = allPosts
         </button>
       </div>
     </header>
+
+    {seriesPosts.length > 1 && (
+      <section class="mb-10 rounded-pin-lg border border-pin-warm-light bg-pin-fog p-5">
+        <p class="text-caption-bold text-pin-silver">
+          시리즈 · {post.data.series} <span class="text-pin-olive">({seriesIndex + 1}/{seriesPosts.length})</span>
+        </p>
+        <ol class="mt-3 flex flex-col gap-1.5">
+          {seriesPosts.map((p, i) => (
+            <li class="flex items-baseline gap-2 text-caption">
+              <span class="w-5 shrink-0 text-right text-pin-silver">{i + 1}.</span>
+              {p.id === post.id ? (
+                <span class="font-bold text-pin-plum">{p.data.title}</span>
+              ) : (
+                <a href={'/posts/' + p.id} class="text-pin-link hover:text-pin-red">{p.data.title}</a>
+              )}
+            </li>
+          ))}
+        </ol>
+      </section>
+    )}
 
     <div class="relative">
       {toc.length > 0 && (
@@ -104,6 +142,23 @@ const related = allPosts
           {related.map((p) => <PinCard post={p} />)}
         </MasonryGrid>
       </section>
+    )}
+
+    {(olderPost || newerPost) && (
+      <nav class="mt-16 grid gap-3 border-t border-pin-warm-light pt-8 sm:grid-cols-2">
+        {olderPost ? (
+          <a href={'/posts/' + olderPost.id} class="group rounded-pin-lg border border-pin-warm-light p-4 hover:border-pin-red">
+            <span class="text-caption text-pin-silver">← 이전 글</span>
+            <p class="mt-1 text-caption-bold leading-snug text-pin-plum group-hover:text-pin-red">{olderPost.data.title}</p>
+          </a>
+        ) : <span></span>}
+        {newerPost ? (
+          <a href={'/posts/' + newerPost.id} class="group rounded-pin-lg border border-pin-warm-light p-4 text-right hover:border-pin-red sm:col-start-2">
+            <span class="text-caption text-pin-silver">다음 글 →</span>
+            <p class="mt-1 text-caption-bold leading-snug text-pin-plum group-hover:text-pin-red">{newerPost.data.title}</p>
+          </a>
+        ) : <span></span>}
+      </nav>
     )}
   </article>
 

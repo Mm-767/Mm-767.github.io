@@ -6,17 +6,46 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 interface Props {
   title?: string;
   description?: string;
+  image?: string;       // absolute or root-relative OG image; falls back to /og.png
+  type?: 'website' | 'article';
 }
-const { title, description } = Astro.props;
+const { title, description, image, type = 'website' } = Astro.props;
+
+const pageTitle = title ? title + ' — ' + SITE_TITLE : SITE_TITLE;
+const pageDescription = description || SITE_DESCRIPTION;
+// Astro.site is set in astro.config; new URL(...) yields absolute URLs, which
+// OG/Twitter scrapers and canonical tags require. data: thumbnails aren't valid
+// OG images, so any non-http image (e.g. a base64 thumbnail) falls back to /og.png.
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const ogImageSrc = image && /^https?:\/\//.test(image) ? image : new URL('/og.png', Astro.site).href;
 ---
 <!doctype html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>{title ? title + ' — ' + SITE_TITLE : SITE_TITLE}</title>
-    <meta name="description" content={description || SITE_DESCRIPTION} />
+    <link rel="canonical" href={canonicalURL} />
+    <link rel="alternate" type="application/rss+xml" title={SITE_TITLE} href="/rss.xml" />
+
+    <title>{pageTitle}</title>
+    <meta name="description" content={pageDescription} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content={type} />
+    <meta property="og:site_name" content={SITE_TITLE} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDescription} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:image" content={ogImageSrc} />
+    <meta property="og:locale" content="ko_KR" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={pageDescription} />
+    <meta name="twitter:image" content={ogImageSrc} />
   </head>
   <body class="min-h-screen">
     <Header />

@@ -23,6 +23,20 @@ export function formatDate(date: Date): string {
   }).format(date);
 }
 
+// Estimated reading time in whole minutes. Korean posts are counted by CJK
+// characters (~500/min) and any latin runs by words (~200/min); code blocks and
+// link/image syntax are stripped so they don't inflate the count. Always ≥ 1.
+export function readingTime(body: string): number {
+  const text = (body ?? '')
+    .replace(/```[\s\S]*?```/g, ' ')          // fenced code
+    .replace(/`[^`]*`/g, ' ')                  // inline code
+    .replace(/!?\[[^\]]*\]\([^)]*\)/g, ' ')    // links / images
+    .replace(/[#>*_~`>-]/g, ' ');              // markdown punctuation
+  const cjk = (text.match(/[　-鿿가-힣]/g) || []).length;
+  const words = (text.replace(/[　-鿿가-힣]/g, ' ').match(/[A-Za-z0-9]+/g) || []).length;
+  return Math.max(1, Math.round(cjk / 500 + words / 200));
+}
+
 export interface Taxon {
   name: string;
   slug: string;
