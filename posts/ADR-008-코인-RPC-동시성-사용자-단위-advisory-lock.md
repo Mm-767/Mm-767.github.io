@@ -2,7 +2,7 @@
 title: "ADR-008 코인 RPC 동시성 — 사용자 단위 advisory lock"
 date: 2026-09-13
 tags: ["postgresql", "concurrency", "supabase", "adr"]
-series: "설계 결정 로그 (ADR)"
+series: "PETOX 설계 결정 로그"
 description: "멱등키로 재시도는 막았지만 동시 요청 겹침은 못 막았다 — 테스트로 재현한 잔액 오차 버그를 advisory lock으로 고친 기록."
 draft: false
 ---
