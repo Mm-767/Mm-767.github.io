@@ -22,10 +22,11 @@ function remarkFixEscapedMath() {
       if (node.type !== 'math' && node.type !== 'inlineMath') return;
       node.value = fix(node.value);
       // remark-math precomputes the hast text in node.data.hChildren at parse
-      // time; rehype reads that copy, so it must be fixed too.
-      for (const child of node.data?.hChildren ?? []) {
-        if (child.type === 'text') child.value = fix(child.value);
-      }
+      // time; rehype reads that copy, so it must be fixed too. Display math
+      // nests it one level deeper (pre > code > text), so walk the subtree.
+      visit({ type: 'root', children: node.data?.hChildren ?? [] }, 'text', (child) => {
+        child.value = fix(child.value);
+      });
     });
   };
 }
